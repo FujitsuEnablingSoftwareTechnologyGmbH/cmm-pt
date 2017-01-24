@@ -1,0 +1,104 @@
+parameters:
+    token_renew_time: 300 ###in seconds. Before the token expiration time, the token should be renewed. The parameter value is the time, how long before the token expiration time.the actual token refresh time= token expiration time - token_renew_time
+
+
+#this part for perf_log_Cont_send_Read.py ---- injector
+log_latency:
+    num_threads: 1
+    log_api_type: bulk ### possible options: 'bulk' 'single'.
+    num_of_logs_in_one_bulk: ### number of logs send in single bulk
+    log_size:  ###size of single log in byte
+    runtime:  ### runtime in seconds
+    ticker:  ###Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
+
+log_send:
+    num_threads: 1
+    log_every_n: ### log output to console every x times
+    log_api_type: bulk ### possible option  single and bulk
+    num_of_logs_in_one_bulk:   # number of logs send in single bul, work only in bulk mode
+    log_size:  ###size of single log in byte
+    runtime:   ### runtime in seconds
+    frequency:  ### this value define how many single/bulk(request) will send this program per sec
+
+#this part for perf_log_throughput.py to check throughput in elasticsearch directly
+log_throughput:
+    LOG_EVERY_N:  #### log output to console every x times
+    runtime:  #### runtime in seconds
+    ticker:  # ticker below 5 seconds is not useful
+    num_stop:  # wait another 300 seconds (ticker * num_stop)when the diff becomes 0
+    search_field:  # search_field has three values: application_name;application_type;application_message
+    search_string:  # application name searched for and counted
+      -
+
+logagent_latency:
+    LOG_EVERY_N: 100 #### log output to console every x times
+    search:   #example string 'latency500.txt:9f462c9a-07c8-11e6-8340-d43d7ef8efcc' # searched string in elasticsearch
+    count: 1400 # number of expected log with define string
+
+#this part for perf_cont_metric.py to send metrics at intervals
+metric_send:
+    num_threads:
+    num_metrics_per_request:
+    LOG_EVERY_N:  #### log output to console every x times
+    runtime:  ### runtime in seconds
+    ticker:  ### Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
+    metric_name:
+    metric_dimension:
+        - key:
+          value:
+
+
+#this part for perf_log_cont_send.py to send logs at intervals
+log_cont_send:
+    num_threads:
+    LOG_EVERY_N:  ### log output to console every x times
+    bulk_mode_enable: enable ### if this parameter is 'enable' program will send log in bulk mode
+    num_of_logs_in_one_bulk:  # number of logs send in single bul
+    log_size:  ###size of single log in byte
+    runtime:  ### runtime in seconds
+    ticker:  ### Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
+
+
+#this part for perf_logagent_cont_write.py to continuous write
+logagent_write:
+    LOG_EVERY_N:  ### log output to console every x times
+    runtime:   ### runtime in seconds
+    waittime:  ### :qif queue is empty, wait another 5 seconds
+    uuid: 'unique' ### 'unique' or any other string
+    latency_uuid_dir: ### path to file where program save uuid
+    latency_uuid_file: ### name of file where program save uuid
+    inp_file_dir:
+    inp_file_list: ###
+      - name: size200.txt ### file name
+        frequency: 150 #### logs/second : 5: every 1/5 seconds, write one log to logfile
+      - name: latency200.txt ### when this file contain 'latency' word program will and to the message uuid
+        frequency: 0.2 #### logs/second : 0.2: every 1/0.2 seconds, write one log to logfile
+
+    outp_file_dir:
+    outp_file_name:  # name of file where logs will be written
+    outp_log_level:  #log level fo example ERROR, INFO ...
+
+
+metric_throughput:
+    runtime: 60
+    metric_name:
+    ticker:
+    ticker_to_stop:  # wait another time(ticker_to_stop * ticker) when the diff becomes 0
+    metric_dimensions:
+        - key:
+          value:
+
+metric_latency:
+    runtime: #### runtime in seconds
+    check_frequency: #### how long to wait before checking again if metric is available.
+    send_frequency: #### how long to wait before sending metric again.
+    timeout: #### maximum time that program will check if metric is available.
+
+#this part for write_logs
+write_result:
+    directory: 'perf_testResult/' ##Directory where results from all test will be stored
+
+alarm_log:
+    alarm_definition_name: # name pater for all alarm definitions
+    number_of_alarm_definition:  #Number of alarm definition that will be crated
+    alarms_per_alarm_definition: #number of alarms tiger by single alarm definition

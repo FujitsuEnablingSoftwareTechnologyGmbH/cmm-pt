@@ -1,0 +1,21 @@
+url:
+    keystone: http://{keystone address}:35357/v3
+    log_api_url: http://{log-api address}:5607
+    search_uri: http://{elasticsearch address}:9200/_search
+    metrics_api: http://{metric-api address}:8070/v2.0/metrics
+    count_uri: http://{elasticsearch address}:9200/_count
+    influxdb: {influxdb address}:8086
+
+
+users:
+    tenant_name: cmm-agent
+    tenant_password: password
+    tenant_project: cmm
+    admin_name: admin
+    admin_password: admin
+    admin_project: admin
+
+influxdb:
+    user: mon_api
+    password: password
+    database: mon
