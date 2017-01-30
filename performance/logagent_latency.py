@@ -13,69 +13,131 @@
 #
 
 """
-This program is used to measure the latency directly in elasticsearch.
-log entries are searched for using LATENCY:<uuid>:<count>:<timestamp>.
-The logfile written contains this information.
+This program write specific sized and marked log entries in to the log file
+Once a log entry is write  to the file that is monitored by monasca-log-agent the test starts reading the just sent log
+entry from the Elasticsearch API.
+The time it takes from write  until retrieving the same entry via the Elasticsearch API is measured.
 """
-
+import logging
 import search_logs
+import time
+import threading
+import random
+import os
+import string
 import yaml
-import datetime
-import sys
-from write_logs import create_file, write_line_to_file, serialize_logging
+from urlparse import urlparse
+from write_logs import create_file, write_line_to_file
 
-test_name = "logagent_latency"
+TEST_NAME = "logagent_latency"
 
 TEST_CONF = yaml.load(file('test_configuration.yaml'))
-LOG_EVERY_N = TEST_CONF[test_name]['LOG_EVERY_N']
-SEARCH_COUNT = TEST_CONF[test_name]['count']
-UUID_FILE = sys.argv[1] if len(sys.argv) > 1 else TEST_CONF[test_name]['uuid_file']
+BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+ELASTIC_URL = urlparse(BASIC_CONF['url']['elastic_url']).netloc
+CHECK_TIMEOUT = TEST_CONF[TEST_NAME]['check_timeout']
+CHECK_TICKER = TEST_CONF[TEST_NAME]['check_ticker']
+SEARCH_TICKER = TEST_CONF[TEST_NAME]['search_ticker']
+RUNTIME = TEST_CONF[TEST_NAME]['runtime']
+LOG_FILES = TEST_CONF[TEST_NAME]['log_files']
 
 
-def get_uuid_list_from_file():
-    return [line.rstrip('\n').split("uuid=")[1] for line in open(UUID_FILE)]
+class LatencyTest(threading.Thread):
+    def __init__(self, check_ticker, search_ticker, check_timeout, runtime, log_file, log_directory, log_level,
+                 msg_size):
+        threading.Thread.__init__(self, )
+        self.log_directory = log_directory
+        self.log_file = log_file
+        self.log_level = log_level
+        self.msg_size = msg_size
+        self.result_file = self.create_result_file()
+        self.check_ticker = check_ticker
+        self.search_ticker = search_ticker
+        self.check_timeout = check_timeout
+        self.runtime = runtime
+        self.logger = self.create_logger()
 
+    def run(self):
 
-def get_log_timestamp(log_json):
-    """get timestamp filed from response returned by elasticsearch"""
-    utc_time = datetime.datetime.strptime(log_json[0]['_source']['@timestamp'], "%Y-%m-%dT%H:%M:%S.%fZ")
-    return utc_time + datetime.timedelta(hours=2)
+        print " Start checking latency for {}".format(self.log_file)
+        test_start_time = time.time()
+        count = 0
+        while test_start_time + self.runtime > time.time():
+            count += 1
+            msg = self.generate_unique_message()
+            self.write_log_to_file(msg)
+            write_log_time = time.time()
+            search_status = self.search_logs_in_elastic(message=msg)
+            latency_time = '{0:.2f}'.format(time.time() - write_log_time)
+            if search_status is 'OK':
+                print 'COUNT: {} | FILE: {} | TIME: {} | Log Found. Latency = {} s'.\
+                    format(count, self.log_file, time.strftime('%H:%M:%S ', time.localtime()), latency_time)
+                self.write_latency_result(write_log_time, search_status, latency_time)
+            else:
+                print 'COUNT :{} | FILE: {} | TIME: {} | Failed to find log in {} s'. \
+                    format(count,  self.log_file, time.strftime('%H:%M:%S ', time.localtime()), CHECK_TIMEOUT)
+                self.write_latency_result(write_log_time, search_status, '__')
+            time.sleep(self.check_ticker)
 
+    def generate_unique_message(self):
+        letters = string.ascii_lowercase
 
-def get_log_create_time(log_json):
-    """get log creation time  filed from response returned by elasticsearch"""
-    msg_org = log_json[0]['_source']['message'].split(" ")
-    return datetime.datetime.strptime("".join(msg_org[0:2]), "%Y-%m-%d%H:%M:%S,%f")
+        def rand(msg_size):
+            return ''.join((random.choice(letters) for _ in range(msg_size)))
 
+        message = rand(self.msg_size)
+        return message
 
-def run_latency_check(search_uuid):
-    print("Start Time: {} ".format(datetime.datetime.now().strftime("%H:%M:%S.%f")))
-    count = 1
-    while count < SEARCH_COUNT:
-        latency_search_str = search_uuid + ":" + str(count)
-        response_data, status = search_logs.search_logs_by_message_simplematach(latency_search_str)
+    def create_logger(self):
+        logger = logging.getLogger(self.log_file)
+        log_handler = logging.FileHandler(os.path.join(self.log_directory, self.log_file))
+        log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        log_handler.setFormatter(log_formatter)
+        logger.addHandler(log_handler)
+        logger.setLevel(logging.DEBUG)
+        return logger
 
-        if len(response_data) > 0:
-            log_timestamp = get_log_timestamp(response_data)
-            log_create_time = get_log_create_time(response_data)
-            log_latency = (log_timestamp - log_create_time).total_seconds()
-            my_logger = "{},True,{},{},{}".format(str(count), str(log_create_time), str(log_timestamp), str(log_latency))
-        else:
-            my_logger = str(count) + ",False,0,0,0"
+    def write_log_to_file(self, msg):
 
-        serialize_logging(lg_file, my_logger)
-        if count % LOG_EVERY_N == 0:
-            print("Time: {}; count: {}".format(datetime.datetime.now().strftime("%H:%M:%S.%f"), count))
+        self.logger.log(logging.getLevelName(self.log_level), msg)
 
-        count += 1
+    def search_logs_in_elastic(self, message):
+        """this function search logs entry that contain specified message in database,
+        If function find expected log entry will return 'OK' message,
+        If function could not find all expected log entry in specified time will return FAILED string
+        Parameters:
+            message :searched message in log
+        """
+        timeout = time.time() + self.check_timeout
+        while time.time() < timeout:
+            if search_logs.count_logs_by_app_message(message, ELASTIC_URL)[0] > 0:
+                return 'OK'
+            time.sleep(self.search_ticker)
+        return 'FAILED'
 
-    print("-----Test Results----- :" + test_name)
-    print("End Time: ", datetime.datetime.now().strftime("%H:%M:%S.%f"))
+    def create_result_file(self):
+        """create result file and save header line to this file """
+        res_file = create_file("{}_{}_".format(TEST_NAME, self.log_file))
+        header_line = "Start Time, Status, Latency"
+        write_line_to_file(res_file, header_line)
+        return res_file
+
+    def write_latency_result(self, latency_check_time, latency_check_status, latency):
+        """write result to result file """
+        write_line_to_file(self.result_file, "{} , {} , {}"
+                           .format(time.strftime('%H:%M:%S', time.localtime(latency_check_time)),
+                                   latency_check_status,
+                                   latency))
+
 
 if __name__ == "__main__":
-    for uuid in get_uuid_list_from_file():
-        lg_file = create_file(test_name)
-        header_line = "count, search_status, message_write_time, timestamp_in_DB, latency(in second)"
-        result = write_line_to_file(lg_file, header_line)
-        run_latency_check(uuid)
-        lg_file.close()
+    print ">>>>Start Latency test<<<<"
+    thread_list = []
+    for log_file in LOG_FILES:
+        t = LatencyTest(CHECK_TICKER, SEARCH_TICKER, CHECK_TIMEOUT, RUNTIME,
+                        log_file['file'], log_file['directory'], log_file['log_level'], log_file['msg_size'])
+        t.start()
+        thread_list.append(t)
+
+    for thread in thread_list:
+        thread.join()
+

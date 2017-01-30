@@ -26,10 +26,8 @@ import time
 import logging
 import yaml
 import datetime
-import uuid
-import re
 from Queue import Queue, Empty
-from write_logs import create_file, write_line_to_file, create_directory
+from write_logs import create_file, write_line_to_file
 
 
 TEST_NAME = 'logagent_write'
@@ -44,17 +42,6 @@ UUID_DIR = TEST_CONF[TEST_NAME]['latency_uuid_dir']
 
 #Queue empty: Timeout parameter
 QUEUE_TIME_OUT = 5
-
-HEADER_LINE = (
-    "Test, ThreadName, Start Time, Stop Time, # of sent Logs, Used Time, "
-    "Average per second, {} ,RunTime: {}".format(TEST_NAME, RUNTIME))
-
-
-def write_content_log(file_name, thread_name, pstart_time, pfinal_time, count, final_time, start_time):
-    write_line_to_file(file_name,
-                       (TEST_NAME + ' , ' + thread_name + " , {} , {} , {} , {} , {} ".
-                format(pstart_time, pfinal_time, count, final_time - start_time,
-                       round(count / (final_time - start_time)), 2)))
 
 
 class LogWriter(threading.Thread):
@@ -73,9 +60,6 @@ class LogWriter(threading.Thread):
         logger.addHandler(log_handler)
         logger.setLevel(logging.DEBUG)
         return logger
-
-    def get_final_result(self):
-        return self.total_log_wrote, self.freq
 
     def run(self):
         """check if queue is not empty, if find any message then write this message to the log file """
@@ -120,8 +104,7 @@ class LogWriter(threading.Thread):
 
 
 class LogGenerator(threading.Thread):
-    """Class for generation specified logs i
-    """
+
     def __init__(self, msg, freq, input_file_name, outp_file_name, queue, log_level, latency_string=None):
         threading.Thread.__init__(self)
         self.freq = freq
@@ -134,6 +117,7 @@ class LogGenerator(threading.Thread):
         self.log_level = log_level
 
     def write_results_to_file(self, size_of_message):
+
         result_str = "{},{},{},{}".format(str(self.input_file_name), str(size_of_message),
                                           str(self.freq), str(self.total))
         file_name = "ReadThread_{}_{}".format(self.input_file_name, self.outp_file_name)
@@ -144,7 +128,7 @@ class LogGenerator(threading.Thread):
         lg_file1.close()
 
     def run(self):
-        """Create logs  and put this logs to the queue in specified intervals  """
+        """this method put specified logs to the queue in predefine interval"""
         start_time = time.time()
         message_to_write = [self.log_level, self.msg.replace("\n", "")]
 
@@ -165,30 +149,8 @@ class LogGenerator(threading.Thread):
         self.write_results_to_file(len(message_to_write))
 
 
-def check_latency_file(inp_file_name):
-    match = re.search('^latency', inp_file_name, re.IGNORECASE)
-    if match:
-        return True
-    else:
-        return False
-
-
-def get_uuid(file_name, date):
-    lock = threading.Lock()
-    latency_uuid = uuid.uuid1()
-    create_directory(UUID_DIR)
-    uuid_file_name = 'uuid' + "_" + date
-    lock.acquire()
-    try:
-        with open(UUID_DIR + uuid_file_name, 'a') as f:
-            write_line_to_file(f, "filename={}, uuid={}".format(str(file_name), str(latency_uuid)))
-    finally:
-        lock.release()
-
-    return latency_uuid
-
-
 def get_message_from_input_file(file_path):
+    """Get log message from the specified file, this message will be write to the log file """
     with open(file_path) as f:
         return f.read()
 
@@ -204,12 +166,7 @@ if __name__ == "__main__":
 
         for input_file in INP_FILES:
             message = get_message_from_input_file(INP_FILE_DIR + input_file['name'])
-
-            if check_latency_file(input_file['name']):
-                t = LogGenerator(message, input_file['frequency'], input_file['name'],
-                                 output_file_name, q, input_file['loglevel'], get_uuid(output_file_name, test_start_date))
-            else:
-                t = LogGenerator(message, input_file['frequency'], input_file['name'], output_file_name, q)
+            t = LogGenerator(message, input_file['frequency'], input_file['name'], output_file_name, q, input_file['loglevel'])
             t.start()
 
         write_thread = LogWriter(OUTP_FILE_DIR + output_file_name, q)

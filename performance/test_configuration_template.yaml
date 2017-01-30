@@ -31,9 +31,15 @@ log_throughput:
       -
 
 logagent_latency:
-    LOG_EVERY_N: 100 #### log output to console every x times
-    search:   #example string 'latency500.txt:9f462c9a-07c8-11e6-8340-d43d7ef8efcc' # searched string in elasticsearch
-    count: 1400 # number of expected log with define string
+    check_timeout: 240 # maximum time that
+    check_ticker: 5 # how long to wait before write latency log again
+    search_ticker: 0.1 # wait time between search request
+    runtime: 360
+    log_files:
+        - file: tmp.log
+          directory: /var/log/st/
+          log_level: ERROR
+          msg_size: 200
 
 #this part for perf_cont_metric.py to send metrics at intervals
 metric_send:
