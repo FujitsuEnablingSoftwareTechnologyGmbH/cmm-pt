@@ -65,24 +65,26 @@ log_cont_send:
     ticker:  ### Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
 
 
-#this part for perf_logagent_cont_write.py to continuous write
+#this part for logagent_write.py to continuous write
 logagent_write:
-    LOG_EVERY_N:  ### log output to console every x times
-    runtime:   ### runtime in seconds
-    waittime:  ### :qif queue is empty, wait another 5 seconds
+    log_ever_n:   ### log output to console every x times
+    runtime:    ### runtime in seconds
+    waittime:   ### :qif queue is empty, wait another 5 seconds
     uuid: 'unique' ### 'unique' or any other string
-    latency_uuid_dir: ### path to file where program save uuid
-    latency_uuid_file: ### name of file where program save uuid
-    inp_file_dir:
+    latency_uuid_dir: tmp/ ### path to file where program save uuid
+    latency_uuid_file: uuid ### name of file where program save uuid
+    inp_file_dir: input/
     inp_file_list: ###
-      - name: size200.txt ### file name
-        frequency: 150 #### logs/second : 5: every 1/5 seconds, write one log to logfile
-      - name: latency200.txt ### when this file contain 'latency' word program will and to the message uuid
-        frequency: 0.2 #### logs/second : 0.2: every 1/0.2 seconds, write one log to logfile
-
-    outp_file_dir:
-    outp_file_name:  # name of file where logs will be written
-    outp_log_level:  #log level fo example ERROR, INFO ...
+      - name: file.txt ### file name
+        frequency:  #### logs/second : 5: every 1/5 seconds, write one log to logfile
+        loglevel: INFO
+      - name: file.txt ### when this file contain 'latency' word program will and to the message uuid
+        frequency:  #### logs/second : 0.2: every 1/0.2 seconds, write one log to logfile
+        loglevel: ERROR   #log level fo example ERROR, INFO ...
+    outp_file_dir: /var/log/st_test/
+    outp_file_name:
+        - test1.log
+        - test2.log
 
 
 metric_throughput:
