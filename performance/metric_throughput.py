@@ -103,6 +103,7 @@ if __name__ == "__main__":
     time_before_query = start_time
     count_ticker_to_stop = 0
     query_time = 0
+    last_query_time = time.time()
     while True:
 
         try:
@@ -113,9 +114,9 @@ if __name__ == "__main__":
             count = count_after_request
             time_after_query = time.time()
             query_time = time_after_query - time_before_query
-
-            write_result_to_file(results_file, count, count_different, count_different / query_time)
-
+            write_result_to_file(results_file, count, count_different,
+                                 count_different / (time_after_query - last_query_time))
+            last_query_time = time.time()
         except InfluxDBClientError as e:
 
             print str(e)
