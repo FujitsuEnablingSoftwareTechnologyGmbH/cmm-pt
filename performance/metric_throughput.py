@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
         if time.time() > (start_time + RUNTIME):
 
-            if count_different is 0:
+            if int(count_different) is 0:
                 count_ticker_to_stop += 1
 
                 if count_ticker_to_stop > TICKER_TO_STOP:
