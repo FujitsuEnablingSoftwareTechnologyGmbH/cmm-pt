@@ -50,6 +50,7 @@ def create_program_argument_parser():
     parser.add_argument('-frequency', action="store", dest='frequency', type=int)
     parser.add_argument('-log_size', action="store", dest='log_size', type=int)
     parser.add_argument('-daley', action="store", dest='delay', type=int, required=False)
+    parser.add_argument('-log_level', action="store", dest='log_level', type=int, required=False)
     return parser.parse_args()
 
 TEST_NAME = 'log_send'
@@ -70,6 +71,8 @@ if len(sys.argv) <= 1:
     NUM_Of_LOGS_IN_ONE_BULK = TEST_CONF[TEST_NAME]['num_of_logs_in_one_bulk']
     FREQUENCY = TEST_CONF[TEST_NAME]['frequency']
     LOG_SIZE = TEST_CONF[TEST_NAME]['log_size']
+    LOG_LEVEL = TEST_CONF[TEST_NAME]['log_level']
+    LOG_DIMENSION = TEST_CONF[TEST_NAME]['dimension']
     DELAY = None
 else:
     program_argument = create_program_argument_parser()
@@ -86,6 +89,8 @@ else:
     FREQUENCY = program_argument.frequency
     LOG_SIZE = program_argument.log_size
     DELAY = program_argument.delay
+    LOG_LEVEL = program_argument.log_level
+    LOG_DIMENSION = []
 
 
 headers_post = {"Content-type": "application/json"}
@@ -95,7 +100,7 @@ if LOG_API_TYPE == 'single':
 token_handler = TokenHandler.TokenHandler(TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT, KEYSTONE_URL)
 
 
-def generate_unique_message(size=50, count=0):
+def generate_log_message(size=50, count=0):
     """Return unique massage that contain current data, Count value and random massage
     Parameters:
         size - size of the message
@@ -105,14 +110,13 @@ def generate_unique_message(size=50, count=0):
         return ''.join((random.choice(letters + ' ') for _ in range(size)))
 
     letters = string.ascii_lowercase
-    gen_time = datetime.datetime.now().strftime("%H:%M:%S.%f") + 'Count=' + str(count) + ' '
-    if size > len(gen_time):
-        message = rand(size - len(gen_time))
+    basic_msg = "{} {} Count={} ".format(datetime.datetime.now().strftime("%H:%M:%S.%f"), LOG_LEVEL, str(count))
+    if size > len(basic_msg):
+        message = rand(size - len(basic_msg))
         gen_mes = ("".join(message))
     else:
         gen_mes = ""
-
-    return '{} {}'.format(gen_time, gen_mes)
+    return '{} {}'.format(basic_msg, gen_mes)
 
 
 def generate_valid_token():
@@ -126,7 +130,11 @@ def send_log_in_single_mod(log_api_conn, message):
     """Send log to log api in single mode and return request status code
     """
     generate_valid_token()
-    body = simplejson.dumps({'message': message})
+    dimensions = {}
+    for dimension in LOG_DIMENSION:
+        dimensions[dimension['key']] = dimension['value']
+    dimensions['application_type'] = 'SystemTest'
+    body = simplejson.dumps({'message': message, 'dimensions': dimensions})
     log_api_conn.request("POST", SINGLE_LOG_API_URL_PATH, body, headers_post)
     res = log_api_conn.getresponse()
     return res.status
@@ -137,9 +145,17 @@ def send_bulk(log_api_conn, message):
     """
     generate_valid_token()
     log_list = []
-    single_log = {'message': message, 'dimensions': {'application_type': 'SystemTest'}}
-    for _ in range(NUM_Of_LOGS_IN_ONE_BULK):
+    dimensions = {}
+    for dimension in LOG_DIMENSION:
+        dimensions[dimension['key']] = dimension['value']
+    dimensions['application_type'] = 'SystemTest'
+
+    for i in range(NUM_Of_LOGS_IN_ONE_BULK):
+        single_log_dimensions = dimensions.copy()
+        single_log_dimensions.update({'log_count': str(i)})
+        single_log = {'message': message, 'dimensions': single_log_dimensions}
         log_list.append(single_log)
+
     body = simplejson.dumps({'logs': log_list})
     log_api_conn.request("POST", BULK_URL_PATH, body, headers_post)
     res = log_api_conn.getresponse()
@@ -166,10 +182,10 @@ def run_log_send_test():
     while time.time() < (start_time + RUNTIME):
         req_start_time = time.time()
         if LOG_API_TYPE == 'bulk':
-            send_status = send_bulk(log_api_connection, generate_unique_message(size=LOG_SIZE, count=request_count))
+            send_status = send_bulk(log_api_connection, generate_log_message(size=LOG_SIZE, count=request_count))
         else:
             send_status = send_log_in_single_mod(log_api_connection,
-                                                 generate_unique_message(size=LOG_SIZE, count=request_count))
+                                                 generate_log_message(size=LOG_SIZE, count=request_count))
 
         if send_status != 204:
             print("One request is failed!")

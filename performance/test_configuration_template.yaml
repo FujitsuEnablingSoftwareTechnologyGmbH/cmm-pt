@@ -19,6 +19,10 @@ log_send:
     log_size:  ###size of single log in byte
     runtime:   ### runtime in seconds
     frequency:  ### this value define how many single/bulk(request) will send this program per sec
+    log_level:
+    dimension:
+        - key:
+          value:
 
 #this part for perf_log_throughput.py to check throughput in elasticsearch directly
 log_throughput:
