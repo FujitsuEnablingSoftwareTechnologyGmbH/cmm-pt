@@ -55,6 +55,7 @@ if len(sys.argv) <= 1:
     TICKER = TEST_CONF[TEST_NAME]['ticker']
     TICKER_TO_STOP = TEST_CONF[TEST_NAME]['ticker_to_stop']
     METRIC_NAME = TEST_CONF[TEST_NAME]['metric_name']
+    METRIC_DIMENSIONS = TEST_CONF[TEST_NAME]['metric_dimensions']
 else:
     program_argument = create_program_argument_parser()
     INFLUX_URL = program_argument.influx_url
@@ -69,8 +70,14 @@ else:
 
 def create_query():
     """create influx select query that return number of test metric """
+    dimensions = []
+    for dimension in METRIC_DIMENSIONS:
+        dimensions.append("{} = \'{}\'".format(dimension['key'], dimension['value']))
     current_utc_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    return "select count(value) from \"{0}\" WHERE time > \'{1}\'".format(METRIC_NAME, current_utc_time)
+    print "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
+        .format(METRIC_NAME, current_utc_time, " AND ".join(dimensions))
+    return "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
+        .format(METRIC_NAME, current_utc_time, " AND ".join(dimensions))
 
 
 def write_result_to_file(log_file, metric_difference, total_metric, metric_per_sec):
