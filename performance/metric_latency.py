@@ -21,19 +21,118 @@ The public variables are described in basic_configuration.yaml and test_configur
 """
 
 import argparse
-import json
-import sys
-import time
-import random
-import yaml
-from urlparse import urlparse
 import httplib
-import TokenHandler
+import json
+import random
+import threading
+import time
+import sys
+import yaml
 import simplejson
 from datetime import datetime
+from urlparse import urlparse
+import TokenHandler
 from write_logs import create_file, write_line_to_file
 
+
 TEST_NAME = 'metric_latency'
+
+
+class MetricLatency(threading.Thread):
+    def __init__(self, keystone_url, tenant_name, tenant_password, tenant_project, metric_api_url, runtime,
+                 check_frequency, send_frequency, timeout):
+        threading.Thread.__init__(self)
+        self.keystone_url = keystone_url
+        self.tenant_name = tenant_name
+        self.tenant_password = tenant_password
+        self.tenant_project = tenant_project
+        self.metric_api_url = urlparse(metric_api_url)
+        self.runtime = runtime
+        self.check_frequency = check_frequency
+        self.send_frequency = send_frequency
+        self.timeout = timeout
+        self.result_file = create_file(TEST_NAME)
+        self.toke_handler = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
+                                                      self.keystone_url)
+
+    def writ_header_to_result_file(self):
+        write_line_to_file(self.result_file, "Metric Latency Test, Runtime = {}, Metric check frequency = {}, Metric send frequency ={}"
+                           .format(self.runtime, self.check_frequency, self.send_frequency))
+        write_line_to_file(self.result_file, "start_time, send_status, end_time, Latency")
+
+    def write_result_to_result_file(self, start_time, check_status, end_time):
+        start_time_str = datetime.fromtimestamp(start_time).strftime("%H:%M:%S.%f")
+        end_time_str = datetime.fromtimestamp(end_time).strftime("%H:%M:%S.%f")
+        if check_status is "OK":
+            print("Time = {}  Latency = {}s".format(start_time_str, end_time - start_time))
+            write_line_to_file(self.result_file,
+                               "{},{},{},{}".format(start_time_str, check_status, end_time_str, end_time - start_time))
+        else:
+            print("timeout metric not found")
+            write_line_to_file(self.result_file,
+                               "{},{},{},{}".format(start_time_str, check_status, "---", "< " + str(self.timeout)))
+
+    def get_request_header(self):
+        """ return header for request"""
+        return {"Content-type": "application/json", "X-Auth-Token": self.toke_handler.get_valid_token()}
+
+    def create_metric_post_request_body(self, metric_timestamp):
+        return simplejson.dumps({"name": "tmp.latency", "timestamp": metric_timestamp, "value": random.randint(0, 100)})
+
+    def send_metric(self, metric_timestamp):
+        connection = httplib.HTTPConnection(self.metric_api_url.netloc)
+        body = self.create_metric_post_request_body(metric_timestamp)
+        connection.request("POST", self.metric_api_url.path, body, self.get_request_header())
+        request_response = connection.getresponse()
+        connection.close()
+        return request_response.status
+
+    def create_get_metric_request(self, metric_timestamp):
+        metric_timestamp_iso = datetime.utcfromtimestamp(metric_timestamp/1000).isoformat()
+        ent_time_metric_timestamp_iso = datetime.utcfromtimestamp(metric_timestamp/1000 + 1).isoformat()
+        return "?name=tmp.latency&start_time={}&end_time={}".format(metric_timestamp_iso, ent_time_metric_timestamp_iso)
+
+    def get_metric(self, metric_timestamp):
+        """"send query to log api to search metric """
+        connection = httplib.HTTPConnection(self.metric_api_url.netloc)
+        connection.request("GET", "{}/measurements{}".format(self.metric_api_url.path,
+                                                             self.create_get_metric_request(metric_timestamp)),
+                           headers=self.get_request_header())
+        request_response = connection.getresponse().read()
+        connection.close()
+        return request_response
+
+    def check_until_metric_is_available(self, metric_timestamp):
+        """function search  metric in metric-api
+          if function find specified metric return 'OK'
+          if could not find specified metric in expected time return 'TIMEOUT' """
+
+        time_out_time = self.timeout + time.time()
+        while time_out_time > time.time():
+            response_json = json.loads(self.get_metric(metric_timestamp))
+            try:
+                if len(response_json['elements']) > 0:
+                    return "OK"
+            except:
+                print "Unexpected error:" + sys.exc_info()[0]
+            time.sleep(self.check_frequency)
+
+        return "TIMEOUT"
+
+    def run(self):
+        self.writ_header_to_result_file()
+        test_start_time = time.time()
+        while time.time() < (test_start_time + self.runtime):
+            metric_timestamp_milliseconds = int((round(time.time() * 1000)))
+            send_status = self.send_metric(metric_timestamp_milliseconds)
+            if send_status is not 204:
+                print "Fail to send metrics"
+
+            else:
+                time_before_check = time.time()
+                check_status = self.check_until_metric_is_available(metric_timestamp_milliseconds)
+                self.write_result_to_result_file(time_before_check, check_status, time.time())
+            time.sleep(self.send_frequency)
 
 
 def create_program_argument_parser():
@@ -49,124 +148,36 @@ def create_program_argument_parser():
     parser.add_argument('-timeout', action="store", dest='timeout', type=int)
     return parser.parse_args()
 
-if len(sys.argv) <= 1:
-    TEST_CONF = yaml.load(file('test_configuration.yaml'))
-    BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
-    KEYSTONE_URL = BASIC_CONF['url']['keystone']
-    USER_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
-                       "password": BASIC_CONF['users']['tenant_password'],
-                       "project": BASIC_CONF['users']['tenant_project']}
-    METRIC_API_URL = BASIC_CONF['url']['metrics_api'] + "/metrics"
-    RUNTIME = TEST_CONF[TEST_NAME]['runtime']
-    CHECK_FREQUENCY = TEST_CONF[TEST_NAME]['check_frequency']
-    SEND_FREQUENCY = TEST_CONF[TEST_NAME]['send_frequency']
-    TIMEOUT = TEST_CONF[TEST_NAME]['timeout']
-
-else:
-    program_argument = create_program_argument_parser()
-    KEYSTONE_URL = program_argument.keystone_url
-    USER_CREDENTIAL = {"name": program_argument.tenant_name,
-                       "password": program_argument.tenant_password,
-                       "project": program_argument.tenant_project}
-    METRIC_API_URL = program_argument.metric_api_url + "/metrics"
-    RUNTIME = program_argument.runtime
-    CHECK_FREQUENCY = program_argument.check_frequency
-    SEND_FREQUENCY = program_argument.send_frequency
-    TIMEOUT = program_argument.timeout
-
-
-TOKEN_HANDLER = TokenHandler.TokenHandler(USER_CREDENTIAL['name'],
-                                          USER_CREDENTIAL['password'],
-                                          USER_CREDENTIAL['project'],
-                                          KEYSTONE_URL)
-metrics_api_url_parse = urlparse(METRIC_API_URL)
-request_header = {"Content-type": "application/json", "X-Auth-Token": TOKEN_HANDLER.get_valid_token()}
-
-result_file = create_file(TEST_NAME)
-
-
-def writ_header_to_result_file():
-    write_line_to_file(result_file, "Metric Latency Test, Runtime = {}, Metric check frequency = {}, Metric send frequency ={}"
-                       .format(RUNTIME, CHECK_FREQUENCY, SEND_FREQUENCY))
-    write_line_to_file(result_file, "start_time, send_status, end_time, Latency")
-
-
-def write_result_to_result_file(start_time, check_status, end_time):
-    start_time_str = datetime.fromtimestamp(start_time).strftime("%H:%M:%S.%f")
-    end_time_str = datetime.fromtimestamp(end_time).strftime("%H:%M:%S.%f")
-    if check_status is "OK":
-        print("Time = {}  Latency = {}s".format(start_time_str, end_time - start_time))
-        write_line_to_file(result_file, "{},{},{},{}".format(start_time_str, check_status, end_time_str, end_time - start_time))
-    else:
-        print("timeout metric not found")
-        write_line_to_file(result_file, "{},{},{},{}".format(start_time_str, check_status, "---", "< " + str(TIMEOUT)))
-
-
-def update_token_if_needed():
-    """Update valid token in headers_post dictionary"""
-    request_header['X-Auth-Token'] = TOKEN_HANDLER.get_valid_token()
-
-
-def create_metric_post_request_body(metric_timestamp):
-    return simplejson.dumps({"name": "tmp.latency", "timestamp": metric_timestamp, "value": random.randint(0, 100)})
-
-
-def send_metric(metric_timestamp):
-    connection = httplib.HTTPConnection(metrics_api_url_parse.netloc)
-    update_token_if_needed()
-    body = create_metric_post_request_body(metric_timestamp)
-    connection.request("POST", metrics_api_url_parse.path, body, request_header)
-    request_response = connection.getresponse()
-    connection.close()
-    return request_response.status
-
-
-def create_get_metric_request(metric_timestamp):
-    metric_timestamp_iso = datetime.utcfromtimestamp(metric_timestamp/1000).isoformat()
-    ent_time_metric_timestamp_iso = datetime.utcfromtimestamp((metric_timestamp)/1000 + 1 ).isoformat()
-    return "?name=tmp.latency&start_time={}&end_time={}".format(metric_timestamp_iso, ent_time_metric_timestamp_iso)
-
-
-def get_metric(metric_timestamp):
-    """"send query to log api to search metric """
-    connection = httplib.HTTPConnection(metrics_api_url_parse.netloc)
-    update_token_if_needed()
-    connection.request("GET", metrics_api_url_parse.path + "/measurements" + create_get_metric_request(metric_timestamp),
-                       headers=request_header)
-    request_response = connection.getresponse().read()
-    connection.close()
-    return request_response
-
-
-def check_until_metric_is_available(metric_timestamp):
-    """function search  metric in metric-api
-      if function find specified metric return 'OK'
-      if could not find specified metric in expected time return 'TIMEOUT' """
-
-    time_out_time = TIMEOUT + time.time()
-    while time_out_time > time.time():
-        response_json = json.loads(get_metric(metric_timestamp))
-        try:
-            if len(response_json['elements']) > 0:
-                return "OK"
-        except:
-            print "Unexpected error:" + sys.exc_info()[0]
-        time.sleep(CHECK_FREQUENCY)
-
-    return "TIMEOUT"
-
-
 if __name__ == "__main__":
-    writ_header_to_result_file()
-    test_start_time = time.time()
-    while time.time() < (test_start_time + RUNTIME):
-        metric_timestamp_milliseconds = int((round(time.time() * 1000)))
-        send_status = send_metric(metric_timestamp_milliseconds)
-        if send_status is not 204:
-            print "Fail to send metrics"
 
-        else:
-            time_before_check = time.time()
-            check_status = check_until_metric_is_available(metric_timestamp_milliseconds)
-            write_result_to_result_file(time_before_check, check_status, time.time())
-        time.sleep(SEND_FREQUENCY)
+    if len(sys.argv) <= 1:
+        TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        KEYSTONE_URL = BASIC_CONF['url']['keystone']
+        USER_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
+                           "password": BASIC_CONF['users']['tenant_password'],
+                           "project": BASIC_CONF['users']['tenant_project']}
+        METRIC_API_URL = BASIC_CONF['url']['metrics_api'] + "/metrics"
+        RUNTIME = TEST_CONF[TEST_NAME]['runtime']
+        CHECK_FREQUENCY = TEST_CONF[TEST_NAME]['check_frequency']
+        SEND_FREQUENCY = TEST_CONF[TEST_NAME]['send_frequency']
+        TIMEOUT = TEST_CONF[TEST_NAME]['timeout']
+
+    else:
+        program_argument = create_program_argument_parser()
+        KEYSTONE_URL = program_argument.keystone_url
+        USER_CREDENTIAL = {"name": program_argument.tenant_name,
+                           "password": program_argument.tenant_password,
+                           "project": program_argument.tenant_project}
+        METRIC_API_URL = program_argument.metric_api_url + "/metrics"
+        RUNTIME = program_argument.runtime
+        CHECK_FREQUENCY = program_argument.check_frequency
+        SEND_FREQUENCY = program_argument.send_frequency
+        TIMEOUT = program_argument.timeout
+
+    metric_latency = MetricLatency(KEYSTONE_URL, USER_CREDENTIAL['name'], USER_CREDENTIAL['password'],
+                                   USER_CREDENTIAL['project'], METRIC_API_URL, RUNTIME, CHECK_FREQUENCY, SEND_FREQUENCY,
+                                   TIMEOUT)
+    metric_latency.start()
+
+
