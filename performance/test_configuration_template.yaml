@@ -51,7 +51,7 @@ metric_send:
     num_metrics_per_request:
     LOG_EVERY_N:  #### log output to console every x times
     runtime:  ### runtime in seconds
-    ticker:  ### Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
+    frequency:  ### Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
     metric_name:
     metric_dimension:
         - key:

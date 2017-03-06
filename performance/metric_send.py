@@ -26,12 +26,140 @@ import httplib
 import random
 import simplejson
 import sys
+import threading
 import time
 import TokenHandler
 import yaml
 from urlparse import urlparse
 from multiprocessing import Process, Queue
 from write_logs import create_file, write_line_to_file
+
+TEST_NAME = 'metric_send'
+
+
+class MetricSend(threading.Thread):
+    def __init__(self, keystone_url, tenant_name, tenant_password, tenant_project, metric_api_url, num_threads,
+                 num_metric_per_request, log_every_n, runtime, frequency, metric_name, metric_dimension, delay):
+        threading.Thread.__init__(self)
+        self.headers = {"Content-type": "application/json"}
+        self.keystone_url = keystone_url
+        self.tenant_name = tenant_name
+        self.tenant_password = tenant_password
+        self.tenant_project = tenant_project
+        self.metric_api_url = metric_api_url
+        self.num_threads = num_threads
+        self.num_metric_per_request = num_metric_per_request
+        self.log_every_n = log_every_n
+        self.runtime = runtime
+        self.frequency = frequency
+        self.metric_name = metric_name
+        self.metric_dimension = metric_dimension
+        self.delay = delay
+        self.result_file = self.create_result_file()
+        self.TOKEN_HANDLER = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
+                                                       self.keystone_url)
+
+    def create_metric_body(self, process_id):
+        """Create json metric request body that contain fallowing filed:
+        name, dimension, timestamp and value """
+        multiple_metric_body = []
+        current_utc_time = int((round(time.time() * 1000)))
+        for i in range(self.num_metric_per_request):
+            dimensions = {}
+            for dimension in self.metric_dimension:
+                dimensions[dimension['key']] = dimension['value']
+            dimensions['count'] = process_id + "_" + str(i)
+            multiple_metric_body.append({"name": self.metric_name, "dimensions": dimensions,
+                                         "timestamp": current_utc_time, "value": random.randint(0, 100)})
+        return multiple_metric_body
+
+    def send_metrics(self, process_id, url_parse, conn):
+        header = self.headers.copy()
+        header.update({"X-Auth-Token": self.TOKEN_HANDLER.get_valid_token()})
+        body = simplejson.dumps(self.create_metric_body(process_id))
+        conn.request("POST", url_parse.path, body, header)
+        request_response = conn.getresponse()
+        request_status = request_response.status
+        request_response.read()
+        return request_status
+
+    def run_metric_test(self, process_id, num_of_sent_metric_queue, result_file):
+        print process_id
+        start_time = time.time()
+        count_metric_request_sent = 0
+        time_before_logging = start_time
+        url_parse = urlparse(self.metric_api_url)
+        connection = httplib.HTTPConnection(url_parse.netloc)
+        while time.time() < (start_time + self.runtime):
+
+            time_before_request = time.time()
+            request_status = self.send_metrics(process_id, url_parse, connection)
+
+            if request_status is 204:
+
+                count_metric_request_sent += 1
+                if count_metric_request_sent % self.log_every_n is 0:
+
+                    time_after_logging = time.time()
+                    print("{}: count: {} = {} per second"
+                          .format(process_id, count_metric_request_sent * self.num_metric_per_request,
+                                  self.log_every_n * self.num_metric_per_request / (time_after_logging - time_before_logging)))
+                    time_before_logging = time.time()
+
+                time_after_request = time.time()
+
+                sleep_time = (1.0 / self.frequency) - (time_after_request - time_before_request)
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+            else:
+
+                print "Failed to send metric. Error code: " + str(request_status)
+        stop_time = time.time()
+        total_metric_send = count_metric_request_sent * self.num_metric_per_request
+        test_duration = stop_time - start_time
+        metric_send_per_sec = total_metric_send / test_duration
+        write_line_to_file(result_file, "{} , {} , {} , {} , {} , {}"
+                           .format(process_id, time.strftime('%H:%M:%S', time.localtime(start_time)),
+                                   time.strftime('%H:%M:%S', time.localtime(stop_time)), total_metric_send,
+                                   test_duration, metric_send_per_sec))
+        num_of_sent_metric_queue.put(count_metric_request_sent * self.num_metric_per_request)
+        return
+
+    def create_result_file(self):
+        """create result file and save header line to this file """
+        res_file = create_file(TEST_NAME)
+        header_line = ("Thread#, Start Time, Stop Time, #sent Metrics, "
+                       "Used Time, Average per second ,Number of threads: {}")
+        write_line_to_file(res_file, header_line)
+        return res_file
+
+    def write_final_result_line_to_file(self, metric_send):
+        print "Total metric send =" + str(metric_send)
+        write_line_to_file(self.result_file,
+                           "Total metric send = {}\nNumber of metrics per request: {} Number of threads: {}".
+                           format(metric_send, self.num_metric_per_request, self.num_threads))
+
+    def run(self):
+        if self.delay is not None:
+            print "wait {}s before starting test".format(self.delay)
+            time.sleep(self.delay)
+        process_list = []
+        total_num_metric_sent_queue = Queue()
+
+        for i in range(self.num_threads):
+            process = Process(target=self.run_metric_test,
+                              args=("Process-{}".format(i), total_num_metric_sent_queue, self.result_file,))
+            process.daemon = True
+            process.start()
+            process_list.append(process)
+
+        total_metric_send = 0
+        for process in process_list:
+            process.join()
+            total_metric_send += total_num_metric_sent_queue.get()
+
+        self.write_final_result_line_to_file(total_metric_send)
+        self.result_file.close()
 
 
 def create_program_argument_parser():
@@ -50,151 +178,45 @@ def create_program_argument_parser():
     parser.add_argument('-daley', action="store", dest='delay', type=int, required=False)
     return parser.parse_args()
 
-TEST_NAME = 'metric_send'
-if len(sys.argv) <= 1:
-    TEST_CONF = yaml.load(file('test_configuration.yaml'))
-    BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
-    METRIC_API_URL = BASIC_CONF['url']['metrics_api'] + "/metrics"
-    KEYSTONE_URL = BASIC_CONF['url']['keystone']
-    TENANT_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
-                         "password": BASIC_CONF['users']['tenant_password'],
-                         "project": BASIC_CONF['users']['tenant_project']}
-
-    NUM_THREADS = TEST_CONF[TEST_NAME]['num_threads']
-    NUM_METRIC_PER_REQUEST = TEST_CONF[TEST_NAME]['num_metrics_per_request']
-    LOG_EVERY_N = TEST_CONF[TEST_NAME]['LOG_EVERY_N']
-    RUNTIME = TEST_CONF[TEST_NAME]['runtime']
-    FREQUENCY = TEST_CONF[TEST_NAME]['ticker']
-    METRIC_NAME = TEST_CONF[TEST_NAME]['metric_name']
-    METRIC_DIMENSION = TEST_CONF[TEST_NAME]['metric_dimension']
-    DELAY = None
-else:
-    program_argument = create_program_argument_parser()
-    KEYSTONE_URL = program_argument.keystone_url
-    TENANT_CREDENTIAL = {"name": program_argument.tenant_name,
-                         "password": program_argument.tenant_password,
-                         "project": program_argument.tenant_project}
-    METRIC_API_URL = program_argument.metric_api_url + "/metrics"
-    NUM_THREADS = program_argument.num_threads
-    NUM_METRIC_PER_REQUEST = program_argument.num_metric_per_request
-    LOG_EVERY_N = program_argument.log_every_n
-    RUNTIME = program_argument.runtime
-    FREQUENCY = program_argument.frequency
-    METRIC_NAME = program_argument.metric_name
-    METRIC_DIMENSION = [{'key': 'test', 'value': 'systemTest'}]
-    DELAY = program_argument.delay
-
-TOKEN_HANDLER = TokenHandler.TokenHandler(TENANT_CREDENTIAL['name'],
-                                          TENANT_CREDENTIAL['password'],
-                                          TENANT_CREDENTIAL['project'],
-                                          KEYSTONE_URL)
-
-headers = {"Content-type": "application/json"}
-
-
-def create_metric_body(process_id):
-    """Create json metric request body that contain fallowing filed:
-    name, dimension, timestamp and value """
-    multiple_metric_body = []
-    current_utc_time = int((round(time.time() * 1000)))
-    for i in range(NUM_METRIC_PER_REQUEST):
-        dimensions = {}
-        for dimension in METRIC_DIMENSION:
-            dimensions[dimension['key']] = dimension['value']
-        dimensions['count'] = process_id + "_" + str(i)
-        multiple_metric_body.append({"name": METRIC_NAME, "dimensions": dimensions,
-                                     "timestamp": current_utc_time, "value": random.randint(0, 100)})
-    return multiple_metric_body
-
-
-def send_metrics(process_id, url_parse, conn):
-    headers["X-Auth-Token"] = TOKEN_HANDLER.get_valid_token()
-    body = simplejson.dumps(create_metric_body(process_id))
-    conn.request("POST", url_parse.path, body, headers)
-    request_response = conn.getresponse()
-    request_status = request_response.status
-    request_response.read()
-    return request_status
-
-
-def run_metric_test(process_id, num_of_sent_metric_queue, result_file):
-    print process_id
-    start_time = time.time()
-    count_metric_request_sent = 0
-    time_before_logging = start_time
-    url_parse = urlparse(METRIC_API_URL)
-    connection = httplib.HTTPConnection(url_parse.netloc)
-    while time.time() < (start_time + RUNTIME):
-
-        time_before_request = time.time()
-        request_status = send_metrics(process_id, url_parse, connection)
-
-        if request_status is 204:
-
-            count_metric_request_sent += 1
-            if count_metric_request_sent % LOG_EVERY_N is 0:
-
-                time_after_logging = time.time()
-                print("{}: count: {} = {} per second"
-                      .format(process_id, count_metric_request_sent * NUM_METRIC_PER_REQUEST,
-                              LOG_EVERY_N * NUM_METRIC_PER_REQUEST / (time_after_logging - time_before_logging)))
-                time_before_logging = time.time()
-
-            time_after_request = time.time()
-
-            sleep_time = (1.0 / FREQUENCY) - (time_after_request - time_before_request)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-        else:
-
-            print "Failed to send metric. Error code: " + str(request_status)
-    stop_time = time.time()
-    total_metric_send = count_metric_request_sent * NUM_METRIC_PER_REQUEST
-    test_duration = stop_time - start_time
-    metric_send_per_sec = total_metric_send / test_duration
-    write_line_to_file(result_file, "{} , {} , {} , {} , {} , {}"
-                       .format(process_id, time.strftime('%H:%M:%S', time.localtime(start_time)),
-                               time.strftime('%H:%M:%S', time.localtime(stop_time)), total_metric_send,
-                               test_duration, metric_send_per_sec))
-    num_of_sent_metric_queue.put(count_metric_request_sent * NUM_METRIC_PER_REQUEST)
-    return
-
-
-def create_result_file():
-    """create result file and save header line to this file """
-    res_file = create_file(TEST_NAME)
-    header_line = ("Thread#, Start Time, Stop Time, #sent Metrics, "
-                   "Used Time, Average per second ,Number of threads: {}")
-    write_line_to_file(res_file, header_line)
-    return res_file
-
-
-def write_final_result_line_to_file(metric_send):
-    print "Total metric send =" + str(metric_send)
-    write_line_to_file(result_file,
-                       "Total metric send = {}\nNumber of metrics per request: {} Number of threads: {}".
-                       format(metric_send, NUM_METRIC_PER_REQUEST, NUM_THREADS))
-
-
 if __name__ == "__main__":
-    if DELAY is not None:
-        print "wait {}s before starting test".format(DELAY)
-        time.sleep(DELAY)
-    process_list = []
-    total_num_metric_sent_queue = Queue()
-    result_file = create_result_file()
-    for i in range(NUM_THREADS):
-        process = Process(target=run_metric_test,
-                          args=("Process-{}".format(i), total_num_metric_sent_queue, result_file, ))
-        process.daemon = True
-        process.start()
-        process_list.append(process)
+    if len(sys.argv) <= 1:
+        TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        METRIC_API_URL = BASIC_CONF['url']['metrics_api'] + "/metrics"
+        KEYSTONE_URL = BASIC_CONF['url']['keystone']
+        TENANT_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
+                             "password": BASIC_CONF['users']['tenant_password'],
+                             "project": BASIC_CONF['users']['tenant_project']}
 
-    total_metric_send = 0
-    for process in process_list:
-        process.join()
-        total_metric_send += total_num_metric_sent_queue.get()
+        NUM_THREADS = TEST_CONF[TEST_NAME]['num_threads']
+        NUM_METRIC_PER_REQUEST = TEST_CONF[TEST_NAME]['num_metrics_per_request']
+        LOG_EVERY_N = TEST_CONF[TEST_NAME]['LOG_EVERY_N']
+        RUNTIME = TEST_CONF[TEST_NAME]['runtime']
+        FREQUENCY = TEST_CONF[TEST_NAME]['frequency']
+        METRIC_NAME = TEST_CONF[TEST_NAME]['metric_name']
+        METRIC_DIMENSION = TEST_CONF[TEST_NAME]['metric_dimension']
+        DELAY = None
+    else:
+        program_argument = create_program_argument_parser()
+        KEYSTONE_URL = program_argument.keystone_url
+        TENANT_CREDENTIAL = {"name": program_argument.tenant_name,
+                             "password": program_argument.tenant_password,
+                             "project": program_argument.tenant_project}
+        METRIC_API_URL = program_argument.metric_api_url + "/metrics"
+        NUM_THREADS = program_argument.num_threads
+        NUM_METRIC_PER_REQUEST = program_argument.num_metric_per_request
+        LOG_EVERY_N = program_argument.log_every_n
+        RUNTIME = program_argument.runtime
+        FREQUENCY = program_argument.frequency
+        METRIC_NAME = program_argument.metric_name
+        METRIC_DIMENSION = [{'key': 'test', 'value': 'systemTest'}]
+        DELAY = program_argument.delay
 
-    write_final_result_line_to_file(total_metric_send)
-    result_file.close()
-
+    TOKEN_HANDLER = TokenHandler.TokenHandler(TENANT_CREDENTIAL['name'],
+                                              TENANT_CREDENTIAL['password'],
+                                              TENANT_CREDENTIAL['project'],
+                                              KEYSTONE_URL)
+    metric_send = MetricSend(KEYSTONE_URL, TENANT_CREDENTIAL['name'], TENANT_CREDENTIAL['password'],
+                             TENANT_CREDENTIAL['project'], METRIC_API_URL, NUM_THREADS, NUM_METRIC_PER_REQUEST,
+                             LOG_EVERY_N, RUNTIME, FREQUENCY, METRIC_NAME, METRIC_DIMENSION, DELAY)
+    metric_send.start()
