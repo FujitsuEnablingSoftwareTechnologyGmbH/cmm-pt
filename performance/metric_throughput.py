@@ -24,12 +24,95 @@ import datetime
 import sys
 import time
 import yaml
+import threading
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from write_logs import create_file, serialize_logging
 
-
 TEST_NAME = 'metric_throughput'
+
+
+class MetricThroughput(threading.Thread):
+
+    def __init__(self, influx_url, influx_port, influx_user, influx_password, influx_database, runtime, ticker,
+                 ticker_to_stop, metric_name, metric_dimension):
+        threading.Thread.__init__(self)
+        self.influx_ip = influx_url
+        self.influx_port = influx_port
+        self.influx_user = influx_user
+        self.influx_password = influx_password
+        self.influx_database = influx_database
+        self.runtime = runtime
+        self.ticker = ticker
+        self.ticker_to_stop = ticker_to_stop
+        self.metric_name = metric_name
+        self.metric_dimensions = metric_dimension
+        self.results_file = self.create_result_file()
+
+    def create_query(self):
+        """create influx select query that return number of test metric """
+        dimensions = []
+        for dimension in self.metric_dimensions:
+            dimensions.append("{} = \'{}\'".format(dimension['key'], dimension['value']))
+        current_utc_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        return "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
+            .format(self.metric_name, current_utc_time, " AND ".join(dimensions))
+
+    def write_result_to_file(self, metric_difference, total_metric, metric_per_sec):
+        current_time = datetime.datetime.now().strftime("%H:%M:%S.%f")
+        print("Time: {}; count: {} = {} per second".format(current_time, total_metric, metric_per_sec))
+        serialize_logging(self.results_file, str(current_time) + ',' + str(total_metric) +
+                          ',' + str(metric_difference) + ',' + str(metric_per_sec))
+
+    def create_result_file(self):
+        res_file = create_file("{}_{}_".format(TEST_NAME, self.metric_name))
+        serialize_logging(res_file, "Time, difference, count, metric per sec")
+        return res_file
+
+    def get_count_value_from_query_response(self, response):
+        """function parse response from influx and return int value  """
+        if len(list(response)) is 0:
+            return 0
+        else:
+            return list(response)[0][0]['count']
+
+    def run(self):
+
+        query = self.create_query()
+        client = InfluxDBClient(self.influx_ip, self.influx_port, self.influx_user, self.influx_password,
+                                self.influx_database)
+        count = 0
+        start_time = time.time()
+        count_ticker_to_stop = 0
+        query_time = 0
+        last_query_time = time.time()
+        while True:
+
+            try:
+                time_before_query = time.time()
+                query_response = client.query(query)
+                count_after_request = self.get_count_value_from_query_response(query_response)
+                count_different = count_after_request - count
+                count = count_after_request
+                time_after_query = time.time()
+                query_time = time_after_query - time_before_query
+                self.write_result_to_file(count, count_different, count_different / (time_after_query - last_query_time))
+                last_query_time = time.time()
+            except InfluxDBClientError as e:
+
+                print str(e)
+
+            if time.time() > (start_time + self.runtime):
+
+                if int(count_different) is 0:
+                    count_ticker_to_stop += 1
+
+                    if count_ticker_to_stop > self.ticker_to_stop:
+                        break
+                else:
+                    count_ticker_to_stop = 0
+            if self.ticker_to_stop > query_time:
+                time.sleep(self.ticker_to_stop - query_time)
 
 
 def create_program_argument_parser():
@@ -44,104 +127,35 @@ def create_program_argument_parser():
     parser.add_argument('-metric_name', action="store", dest='metric_name', type=str)
     return parser.parse_args()
 
-if len(sys.argv) <= 1:
-    TEST_CONF = yaml.load(file('test_configuration.yaml'))
-    BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
-    INFLUX_URL = BASIC_CONF['url']['influxdb']
-    INFLUX_USER = BASIC_CONF['influxdb']['user']
-    INFLUX_PASSWORD = BASIC_CONF['influxdb']['password']
-    INFLUX_DATABASE = BASIC_CONF['influxdb']['database']
-    RUNTIME = TEST_CONF[TEST_NAME]['runtime']
-    TICKER = TEST_CONF[TEST_NAME]['ticker']
-    TICKER_TO_STOP = TEST_CONF[TEST_NAME]['ticker_to_stop']
-    METRIC_NAME = TEST_CONF[TEST_NAME]['metric_name']
-    METRIC_DIMENSIONS = TEST_CONF[TEST_NAME]['metric_dimensions']
-else:
-    program_argument = create_program_argument_parser()
-    INFLUX_URL = program_argument.influx_url
-    INFLUX_USER = program_argument.influx_usr
-    INFLUX_PASSWORD = program_argument.influx_password
-    INFLUX_DATABASE = program_argument.influx_database
-    RUNTIME = program_argument.runtime
-    TICKER = program_argument.ticker
-    TICKER_TO_STOP = program_argument.ticker_to_stop
-    METRIC_NAME = program_argument.metric_name
-
-
-def create_query():
-    """create influx select query that return number of test metric """
-    dimensions = []
-    for dimension in METRIC_DIMENSIONS:
-        dimensions.append("{} = \'{}\'".format(dimension['key'], dimension['value']))
-    current_utc_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    print "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
-        .format(METRIC_NAME, current_utc_time, " AND ".join(dimensions))
-    return "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
-        .format(METRIC_NAME, current_utc_time, " AND ".join(dimensions))
-
-
-def write_result_to_file(log_file, metric_difference, total_metric, metric_per_sec):
-    current_time = datetime.datetime.now().strftime("%H:%M:%S.%f")
-    print("Time: {}; count: {} = {} per second".format(current_time, total_metric, metric_per_sec))
-    serialize_logging(log_file, str(current_time) + ',' + str(total_metric) +
-                      ',' + str(metric_difference) + ',' + str(metric_per_sec))
-
-
-def writ_header_to_file(log_file):
-    serialize_logging(log_file, "Time, difference, count, metric per sec")
-
-
-def get_count_value_from_query_response(response):
-    """function parse response from influx and return int value  """
-    if len(list(response)) is 0:
-        return 0
-    else:
-        return list(response)[0][0]['count']
-
-
 if __name__ == "__main__":
 
-    results_file = create_file(TEST_NAME)
-    writ_header_to_file(results_file)
-    query = create_query()
-    client = InfluxDBClient(INFLUX_URL.split(':')[0], INFLUX_URL.split(':')[1], INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE)
-    count = 0
-    start_time = time.time()
-    time_before_query = start_time
-    count_ticker_to_stop = 0
-    query_time = 0
-    last_query_time = time.time()
-    while True:
+    if len(sys.argv) <= 1:
+        TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        INFLUX_URL = BASIC_CONF['url']['influxdb']
+        INFLUX_USER = BASIC_CONF['influxdb']['user']
+        INFLUX_PASSWORD = BASIC_CONF['influxdb']['password']
+        INFLUX_DATABASE = BASIC_CONF['influxdb']['database']
+        RUNTIME = TEST_CONF[TEST_NAME]['runtime']
+        TICKER = TEST_CONF[TEST_NAME]['ticker']
+        TICKER_TO_STOP = TEST_CONF[TEST_NAME]['ticker_to_stop']
+        METRIC_NAME = TEST_CONF[TEST_NAME]['metric_name']
+        METRIC_DIMENSIONS = TEST_CONF[TEST_NAME]['metric_dimensions']
+    else:
+        program_argument = create_program_argument_parser()
+        INFLUX_URL = program_argument.influx_url
+        INFLUX_USER = program_argument.influx_usr
+        INFLUX_PASSWORD = program_argument.influx_password
+        INFLUX_DATABASE = program_argument.influx_database
+        RUNTIME = program_argument.runtime
+        TICKER = program_argument.ticker
+        TICKER_TO_STOP = program_argument.ticker_to_stop
+        METRIC_NAME = program_argument.metric_name
 
-        try:
-            time_before_query = time.time()
-            query_response = client.query(query)
-            count_after_request = get_count_value_from_query_response(query_response)
-            count_different = count_after_request - count
-            count = count_after_request
-            time_after_query = time.time()
-            query_time = time_after_query - time_before_query
-            write_result_to_file(results_file, count, count_different,
-                                 count_different / (time_after_query - last_query_time))
-            last_query_time = time.time()
-        except InfluxDBClientError as e:
-
-            print str(e)
-
-        if time.time() > (start_time + RUNTIME):
-
-            if int(count_different) is 0:
-                count_ticker_to_stop += 1
-
-                if count_ticker_to_stop > TICKER_TO_STOP:
-                    break
-            else:
-                count_ticker_to_stop = 0
-        if TICKER > query_time:
-            time.sleep(TICKER - query_time)
-
-
-
+    metric_throughput = MetricThroughput(INFLUX_URL.split(':')[0], INFLUX_URL.split(':')[1], INFLUX_USER,
+                                         INFLUX_PASSWORD, INFLUX_DATABASE, RUNTIME, TICKER, TICKER_TO_STOP,
+                                         METRIC_NAME, METRIC_DIMENSIONS)
+    metric_throughput.start()
 
 
 
