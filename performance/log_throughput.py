@@ -82,8 +82,7 @@ class LogThroughput(threading.Thread):
                        format(search_string, check_result, different_log_entries_list[index]))
             log_check_count += 1
             log_check_time = time.time()
-            self.save_result_log_to_file(self.result_file, status, log_check_time, previous_log_check_time,
-                                         different_log_entries_list)
+            self.save_result_log_to_file(status, log_check_time, previous_log_check_time, different_log_entries_list)
             previous_log_check_time = log_check_time
             if sum(different_log_entries_list) == 0:
                 if time.time() > (test_start_time + self.runtime - self.ticker):
@@ -104,7 +103,7 @@ class LogThroughput(threading.Thread):
             serialize_logging(self.result_file, "total logs={}".
                               format(str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])))
 
-    def save_result_log_to_file(self, result_file, count_status, count_time, last_count_time, num_entries_list):
+    def save_result_log_to_file(self, count_status, count_time, last_count_time, num_entries_list):
         duration_secs = count_time - last_count_time
         my_logger = "{}, {}, {}"\
             .format(count_status, time.strftime('%H:%M:%S', time.localtime(count_time)), (round(duration_secs, 2)))
