@@ -28,6 +28,7 @@ import threading
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from write_logs import create_file, serialize_logging
+import db_saver
 
 TEST_NAME = 'metric_throughput'
 
@@ -48,6 +49,10 @@ class MetricThroughput(threading.Thread):
         self.metric_name = metric_name
         self.metric_dimensions = metric_dimension
         self.results_file = self.create_result_file()
+        # The following parameter "1" will be changed into the testCaseID provided by the shell script
+        self.testID = db_saver.save_test(1, TEST_NAME)
+        self.test_results = list()
+        self.test_params = list()
 
     def create_query(self):
         """create influx select query that return number of test metric """
@@ -55,6 +60,11 @@ class MetricThroughput(threading.Thread):
         for dimension in self.metric_dimensions:
             dimensions.append("{} = \'{}\'".format(dimension['key'], dimension['value']))
         current_utc_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        strt_time = datetime.datetime.now().replace(microsecond=0)
+        self.test_params = [['start_time', str(strt_time)],
+                       ['metric_name', str(self.metric_name)],
+                       ['runtime', str(self.runtime)]]
+        db_saver.save_test_params(self.testID, self.test_params)
         return "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
             .format(self.metric_name, current_utc_time, " AND ".join(dimensions))
 
@@ -63,6 +73,8 @@ class MetricThroughput(threading.Thread):
         print("Time: {}; count: {} = {} per second".format(current_time, total_metric, metric_per_sec))
         serialize_logging(self.results_file, str(current_time) + ',' + str(total_metric) +
                           ',' + str(metric_difference) + ',' + str(metric_per_sec))
+        return ["throughput", metric_per_sec,
+                datetime.datetime.now().replace(microsecond=0)]
 
     def create_result_file(self):
         res_file = create_file("{}_{}_".format(TEST_NAME, self.metric_name))
@@ -96,7 +108,8 @@ class MetricThroughput(threading.Thread):
                 count = count_after_request
                 time_after_query = time.time()
                 query_time = time_after_query - time_before_query
-                self.write_result_to_file(count, count_different, count_different / (time_after_query - last_query_time))
+                res = self.write_result_to_file(count, count_different, count_different / (time_after_query - last_query_time))
+                self.test_results.append(res)
                 last_query_time = time.time()
             except InfluxDBClientError as e:
 
@@ -113,6 +126,11 @@ class MetricThroughput(threading.Thread):
                     count_ticker_to_stop = 0
             if self.ticker_to_stop > query_time:
                 time.sleep(self.ticker_to_stop - query_time)
+        end_time = datetime.datetime.now().replace(microsecond=0)
+        self.test_params = [['end_time', str(end_time)]]
+        db_saver.save_test_params(self.testID, self.test_params)
+        db_saver.save_test_results(self.testID, self.test_results)
+        db_saver.close()
 
 
 def create_program_argument_parser():
