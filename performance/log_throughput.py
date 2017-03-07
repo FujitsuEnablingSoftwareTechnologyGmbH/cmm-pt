@@ -30,6 +30,7 @@ import sys
 import yaml
 from write_logs import create_file, write_line_to_file, serialize_logging
 from urlparse import urlparse
+import db_saver
 
 TEST_NAME = "log_throughput"
 
@@ -45,6 +46,9 @@ class LogThroughput(threading.Thread):
         self.search_field = search_field
         self.num_to_stop = num_to_stop
         self.result_file = self.create_result_file()
+        # The following parameter "1" will be changed into the testCaseID provided by the shell script
+        self.testID = db_saver.save_test(1, TEST_NAME)
+        self.test_params = list()
 
     def count_log_entries(self, search_str):
         """this function return number of specified log entries from elasticsearch database
@@ -60,10 +64,10 @@ class LogThroughput(threading.Thread):
     def run(self):
         """start test that check number of specified logs in database in every x seconds
         """
-
         log_check_count = 0
         number_of_log_check_with_the_same_log_number = 0
         test_start_time = time.time()
+        start_time = datetime.datetime.now().replace(microsecond=0)
         initial_number_of_log_list = [0] * len(self.search_string_list)
         different_log_entries_list = [0] * len(self.search_string_list)
 
@@ -72,7 +76,7 @@ class LogThroughput(threading.Thread):
         number_of_log_in_last_request_list = list(initial_number_of_log_list)
         previous_log_check_time = time.time()
         time.sleep(self.ticker)
-
+        testresults = list()
         while True:
             for index, search_string in enumerate(self.search_string_list):
                 check_result, status = self.count_log_entries(search_string)
@@ -82,7 +86,8 @@ class LogThroughput(threading.Thread):
                        format(search_string, check_result, different_log_entries_list[index]))
             log_check_count += 1
             log_check_time = time.time()
-            self.save_result_log_to_file(status, log_check_time, previous_log_check_time, different_log_entries_list)
+            res = self.save_result_log_to_file(status, log_check_time, previous_log_check_time, different_log_entries_list)
+            testresults.append(res)
             previous_log_check_time = log_check_time
             if sum(different_log_entries_list) == 0:
                 if time.time() > (test_start_time + self.runtime - self.ticker):
@@ -96,12 +101,20 @@ class LogThroughput(threading.Thread):
         test_end_time = time.time()
         print("-----Test Results----- :" + TEST_NAME)
         print("End Time: ", datetime.datetime.now().strftime("%H:%M:%S.%f"))
+        end_time = datetime.datetime.now().replace(microsecond=0)
+        db_saver.save_test_results(self.testID, testresults)
         for index, search_string in enumerate(self.search_string_list):
             print("{}:{} log entries in {} seconds"
                   .format(search_string, number_of_log_in_last_request_list[index] - initial_number_of_log_list[index],
                           test_end_time - test_start_time))
             serialize_logging(self.result_file, "total logs={}".
                               format(str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])))
+        self.test_params = [['total_logs', str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])],
+                       ['start_time', str(start_time)],
+                       ['end_time', str(end_time)],
+                       ['runtime', str(self.runtime)]]
+        db_saver.save_test_params(self.testID, self.test_params)
+        db_saver.close()
 
     def save_result_log_to_file(self, count_status, count_time, last_count_time, num_entries_list):
         duration_secs = count_time - last_count_time
@@ -111,6 +124,8 @@ class LogThroughput(threading.Thread):
             my_logger += ", {}, {}".format(str(num_entries_list[index]),
                                            round((num_entries_list[index] / duration_secs), 2))
         serialize_logging(self.result_file, my_logger)
+        return ["throughput", round((num_entries_list[index] / duration_secs), 2),
+                datetime.datetime.now().replace(microsecond=0)]
 
     def create_result_file(self):
         """create result file and save header line to this file """

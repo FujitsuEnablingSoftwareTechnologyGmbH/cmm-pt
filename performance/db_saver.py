@@ -14,7 +14,6 @@ def save_test(testCaseID, testName):
     cursor = db.cursor()
     # save test entry
     sql = " INSERT INTO Test (testCaseID, testName) VALUES ({0}, '{1}');".format(testCaseID, testName)
-    print sql
     cursor.execute(sql)
     db.commit()
     # return the test ID
