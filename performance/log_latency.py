@@ -35,6 +35,7 @@ from urlparse import urlparse
 from threading import Thread
 import TokenHandler
 from write_logs import create_file, write_line_to_file, serialize_logging
+import db_saver
 
 
 TEST_NAME = 'log_latency'
@@ -59,6 +60,8 @@ class LogLatency(threading.Thread):
         self.log_size = log_size
         self.token_handler = TokenHandler.TokenHandler(tenant_username, tenant_password, tenant_project, keystone_url)
         self.result_file = self.create_result_file()
+        # The following parameter "1" will be changed into the testCaseID provided by the launcher script
+        self.testID = db_saver.save_test(1, TEST_NAME)
 
     def search_logs_in_elastic(self, message, duration, check_rate):
         """this function search logs entry that contain specified message in database,
@@ -126,20 +129,31 @@ class LogLatency(threading.Thread):
         return message
 
     def run_latency_test(self):
+        test_results = list()
         thread_name = threading.currentThread().getName()
         latency_check_count = 0
         print("{}: Start Time: {} ".format(thread_name, datetime.datetime.now().strftime("%H:%M:%S.%f")))
         start_time = time.time()
+        strt_time = datetime.datetime.now().replace(microsecond=0)
         while time.time() < (start_time + self.runtime):
             check_start_time = time.time()
             send_status, search_status = self.check_latency(self.generate_unique_message())
             check_end_time = time.time()
             latency_check_count += 1
-            self.write_latency_check_result(send_status, search_status, check_start_time, check_end_time,
+            res = self.write_latency_check_result(send_status, search_status, check_start_time, check_end_time,
                                             thread_name, str(latency_check_count))
+            test_results.append(res)
+        db_saver.save_test_results(self.testID, test_results)
         final_time = time.time()
         print("-----Test Results-----")
         print("{}: End Time: {}".format(thread_name, thread_name, datetime.datetime.now().strftime("%H:%M:%S.%f")))
+        end_time = datetime.datetime.now().replace(microsecond=0)
+        test_params = [['log_api_type', str(self.log_api_type)],
+                       ['start_time', str(strt_time)],
+                       ['end_time', str(end_time)],
+                       ['runtime', str(self.runtime)],
+                       ['log_size', str(self.log_size)]]
+        db_saver.save_test_params(self.testID, test_params)
         print("{}: {} log entries in {} seconds".format(thread_name, latency_check_count, final_time-start_time))
 
     def write_latency_check_result(self, send_status, search_status, start_time, end_time, name, count):
@@ -160,6 +174,7 @@ class LogLatency(threading.Thread):
         else:
             print("{} Time: {}, Send Injector log Failed after: {}"
                   .format(name, datetime.datetime.now().strftime("%H:%M:%S.%f"), latency)+" seconds!")
+        return ["latency", str(latency), datetime.datetime.now().replace(microsecond=0)]
 
     def create_result_file(self):
         """create file for result then write header line to this file """
@@ -186,6 +201,7 @@ class LogLatency(threading.Thread):
             thread.join()
 
         self.result_file.close()
+        db_saver.close()
 
 
 def create_program_argument_parser():
