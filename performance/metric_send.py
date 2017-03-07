@@ -22,6 +22,7 @@ All public variables are described in basic_configuration.yaml and test_configur
 passed as program parameters"""
 
 import argparse
+import datetime
 import httplib
 import random
 import simplejson
@@ -33,6 +34,7 @@ import yaml
 from urlparse import urlparse
 from multiprocessing import Process, Queue
 from write_logs import create_file, write_line_to_file
+import db_saver
 
 TEST_NAME = 'metric_send'
 
@@ -58,6 +60,8 @@ class MetricSend(threading.Thread):
         self.result_file = self.create_result_file()
         self.TOKEN_HANDLER = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
                                                        self.keystone_url)
+        # The following parameter "1" will be changed into the testCaseID provided by the shell script
+        self.testID = db_saver.save_test(1, TEST_NAME)
 
     def create_metric_body(self, process_id):
         """Create json metric request body that contain fallowing filed:
@@ -86,6 +90,7 @@ class MetricSend(threading.Thread):
     def run_metric_test(self, process_id, num_of_sent_metric_queue, result_file):
         print process_id
         start_time = time.time()
+        strt_time = datetime.datetime.now().replace(microsecond=0)
         count_metric_request_sent = 0
         time_before_logging = start_time
         url_parse = urlparse(self.metric_api_url)
@@ -115,6 +120,7 @@ class MetricSend(threading.Thread):
 
                 print "Failed to send metric. Error code: " + str(request_status)
         stop_time = time.time()
+        stp_time = datetime.datetime.now().replace(microsecond=0)
         total_metric_send = count_metric_request_sent * self.num_metric_per_request
         test_duration = stop_time - start_time
         metric_send_per_sec = total_metric_send / test_duration
@@ -122,6 +128,14 @@ class MetricSend(threading.Thread):
                            .format(process_id, time.strftime('%H:%M:%S', time.localtime(start_time)),
                                    time.strftime('%H:%M:%S', time.localtime(stop_time)), total_metric_send,
                                    test_duration, metric_send_per_sec))
+        test_params = [['total_number_of_sent_metrics', str(total_metric_send)],
+                       ['start_time', strt_time],
+                       ['end_time', stp_time],
+                       ['runtime', str(self.runtime)],
+                       ['test_duration', str(test_duration)],
+                       ['avreage_per_second', str(metric_send_per_sec)],
+                       ['frequency', str(self.frequency)]]
+        db_saver.save_test_params(self.testID, test_params)
         num_of_sent_metric_queue.put(count_metric_request_sent * self.num_metric_per_request)
         return
 
@@ -138,6 +152,9 @@ class MetricSend(threading.Thread):
         write_line_to_file(self.result_file,
                            "Total metric send = {}\nNumber of metrics per request: {} Number of threads: {}".
                            format(metric_send, self.num_metric_per_request, self.num_threads))
+        test_params = [['num_metrics_per_request', str(self.num_metric_per_request)],
+                       ['num_threads', str(self.num_threads)]]
+        db_saver.save_test_params(self.testID, test_params)
 
     def run(self):
         if self.delay is not None:
@@ -160,6 +177,7 @@ class MetricSend(threading.Thread):
 
         self.write_final_result_line_to_file(total_metric_send)
         self.result_file.close()
+        db_saver.close()
 
 
 def create_program_argument_parser():
