@@ -33,6 +33,7 @@ from datetime import datetime
 from urlparse import urlparse
 import TokenHandler
 from write_logs import create_file, write_line_to_file
+import db_saver
 
 
 TEST_NAME = 'metric_latency'
@@ -54,23 +55,33 @@ class MetricLatency(threading.Thread):
         self.result_file = create_file(TEST_NAME)
         self.toke_handler = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
                                                       self.keystone_url)
+        # The following parameter "1" will be changed into the testCaseID provided by the shell script
+        self.testID = db_saver.save_test(1, TEST_NAME)
+        self.test_results = list()
+        self.test_params = list()
 
     def writ_header_to_result_file(self):
         write_line_to_file(self.result_file, "Metric Latency Test, Runtime = {}, Metric check frequency = {}, Metric send frequency ={}"
                            .format(self.runtime, self.check_frequency, self.send_frequency))
+        self.test_params = [['check_frequency', str(self.check_frequency)],
+                       ['runtime', str(self.runtime)],
+                       ['send_frequency', str(self.send_frequency)]]
+        db_saver.save_test_params(self.testID, self.test_params)
         write_line_to_file(self.result_file, "start_time, send_status, end_time, Latency")
 
     def write_result_to_result_file(self, start_time, check_status, end_time):
         start_time_str = datetime.fromtimestamp(start_time).strftime("%H:%M:%S.%f")
         end_time_str = datetime.fromtimestamp(end_time).strftime("%H:%M:%S.%f")
+        latency = end_time - start_time
         if check_status is "OK":
-            print("Time = {}  Latency = {}s".format(start_time_str, end_time - start_time))
+            print("Time = {}  Latency = {}s".format(start_time_str, latency))
             write_line_to_file(self.result_file,
-                               "{},{},{},{}".format(start_time_str, check_status, end_time_str, end_time - start_time))
+                               "{},{},{},{}".format(start_time_str, check_status, end_time_str, latency))
         else:
             print("timeout metric not found")
             write_line_to_file(self.result_file,
                                "{},{},{},{}".format(start_time_str, check_status, "---", "< " + str(self.timeout)))
+        return ["latency", str(latency), datetime.now().replace(microsecond=0)]
 
     def get_request_header(self):
         """ return header for request"""
@@ -122,6 +133,7 @@ class MetricLatency(threading.Thread):
     def run(self):
         self.writ_header_to_result_file()
         test_start_time = time.time()
+        start_time = datetime.now().replace(microsecond=0)
         while time.time() < (test_start_time + self.runtime):
             metric_timestamp_milliseconds = int((round(time.time() * 1000)))
             send_status = self.send_metric(metric_timestamp_milliseconds)
@@ -131,8 +143,15 @@ class MetricLatency(threading.Thread):
             else:
                 time_before_check = time.time()
                 check_status = self.check_until_metric_is_available(metric_timestamp_milliseconds)
-                self.write_result_to_result_file(time_before_check, check_status, time.time())
+                res = self.write_result_to_result_file(time_before_check, check_status, time.time())
+                self.test_results.append(res)
             time.sleep(self.send_frequency)
+        db_saver.save_test_results(self.testID, self.test_results)
+        end_time = datetime.now().replace(microsecond=0)
+        test_params = [['start_time', str(start_time)],
+                       ['end_time', str(end_time)]]
+        db_saver.save_test_params(self.testID, test_params)
+        db_saver.close()
 
 
 def create_program_argument_parser():
