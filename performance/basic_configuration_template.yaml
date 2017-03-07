@@ -18,3 +18,9 @@ influxdb:
     user: mon_api
     password: password
     database: mon
+
+mariadb:
+    hostname: host
+    user: user
+    password: pass
+    database: cmm
