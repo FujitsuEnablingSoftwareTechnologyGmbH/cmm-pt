@@ -19,6 +19,7 @@ All public variables are described in basic_configuration.yaml and test_configur
 can be passed as program arguments.
 """
 
+import argparse
 import datetime
 import httplib
 import random
@@ -32,7 +33,7 @@ import threading
 from urlparse import urlparse
 from write_logs import create_file, write_line_to_file
 import TokenHandler
-import argparse
+import db_saver
 
 TEST_NAME = 'log_send'
 BULK_URL_PATH = '/v3.0/logs'
@@ -62,6 +63,9 @@ class LogSend(threading.Thread):
                                                        self.keystone_url)
         self.result_file = self.create_result_file()
         self.token_handler.get_valid_token()
+        # The following parameter "1" will be changed into the testCaseID provided by the shell script
+        self.testID = db_saver.save_test(1, TEST_NAME)
+        self.test_params = list()
 
     def generate_log_message(self, size=50, count=0):
         """Return unique massage that contain current data, Count value and random massage
@@ -169,6 +173,16 @@ class LogSend(threading.Thread):
                            format(thread_name, time.strftime('%H:%M:%S', time.localtime(start_time)),
                                   time.strftime('%H:%M:%S', time.localtime(end_time)), total_number_of_sent_logs,
                                   "{0:.2f}".format(test_duration), "{0:.2f}".format(log_send_per_sec)))
+        self.test_params = [['total_number_of_sent_logs', str(total_number_of_sent_logs)],
+                       ['start_time', str(datetime.datetime.fromtimestamp(start_time).replace(microsecond=0))],
+                       ['end_time', str(datetime.datetime.fromtimestamp(end_time).replace(microsecond=0))],
+                       ['runtime', str(self.runtime)],
+                       ['avreage_per_second', str(log_send_per_sec)],
+                       ['log_level', str(self.log_level)],
+                       ['log_size', str(self.log_size)],
+                       ['bulk_size', self.bulk_size],
+                       ['frequency', str(self.frequency)]]
+        db_saver.save_test_params(self.testID, self.test_params)
 
     def create_result_file(self):
         """create file for result and write header string to this file
@@ -200,6 +214,7 @@ class LogSend(threading.Thread):
 
         self.write_final_result_line()
         self.result_file.close()
+        db_saver.close()
 
 
 def create_program_argument_parser():
