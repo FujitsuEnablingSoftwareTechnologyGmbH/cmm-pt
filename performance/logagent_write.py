@@ -20,12 +20,13 @@ The number of written logs per second will be used to determine the load given t
 The public variables are described in common.yaml file.
 All public variables are described in basic_configuration.yaml and test_configuration.yaml files
 """
-
+import argparse
+import datetime
+import logging
+import sys
 import threading
 import time
-import logging
 import yaml
-import datetime
 from Queue import Queue, Empty
 from write_logs import create_file, write_line_to_file
 
@@ -145,7 +146,7 @@ class LogGenerator(threading.Thread):
 
 
 class LogagentWrite(threading.Thread):
-    def __init__(self,runtime, log_every_n, inp_file_dir, inp_files, outp_file_dir, outp_files_name_list):
+    def __init__(self, runtime, log_every_n, inp_file_dir, inp_files, outp_file_dir, outp_files_name_list):
         threading.Thread.__init__(self)
         self.runtime = runtime
         self.log_every_n = log_every_n
@@ -187,14 +188,37 @@ class LogagentWrite(threading.Thread):
             return f.read()
 
 
+def create_program_argument_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-runtime', action='store', dest='runtime', type=int)
+    parser.add_argument('-log_every_n', action='store', dest='log_every_n', type=int)
+    parser.add_argument('-inp_file_dir', action='store', dest='inp_file_dir', type=str)
+    parser.add_argument('-inp_file_list', action='store', dest='inp_file_list', nargs='+')
+    parser.add_argument('-outp_file_dir', action='store', dest='outp_file_dir', type=str)
+    parser.add_argument('-outp_file_name_list', action='store', dest='outp_file_name_list', nargs='+')
+
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    TEST_CONF = yaml.load(file('test_configuration.yaml'))
-    RUNTIME = TEST_CONF[TEST_NAME]['runtime']
-    LOG_EVERY_N = TEST_CONF[TEST_NAME]['log_ever_n']
-    INP_FILE_DIR = TEST_CONF[TEST_NAME]['inp_file_dir']
-    INP_FILES = TEST_CONF[TEST_NAME]['inp_file_list']
-    OUTP_FILE_DIR = TEST_CONF[TEST_NAME]['outp_file_dir']
-    OUTP_FILES_NAME_LIST = TEST_CONF[TEST_NAME]['outp_file_name']
+
+    if len(sys.argv) <= 1:
+        TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        RUNTIME = TEST_CONF[TEST_NAME]['runtime']
+        LOG_EVERY_N = TEST_CONF[TEST_NAME]['log_ever_n']
+        INP_FILE_DIR = TEST_CONF[TEST_NAME]['inp_file_dir']
+        INP_FILES = TEST_CONF[TEST_NAME]['inp_file_list']
+        OUTP_FILE_DIR = TEST_CONF[TEST_NAME]['outp_file_dir']
+        OUTP_FILES_NAME_LIST = TEST_CONF[TEST_NAME]['outp_file_name']
+    else:
+        program_argument = create_program_argument_parser()
+        RUNTIME = program_argument.runtime
+        LOG_EVERY_N = program_argument.log_every_n
+        INP_FILE_DIR = program_argument.inp_file_dir
+        INP_FILES = [{'name': int_file_cfg[0], 'frequency': int(int_file_cfg[1]), 'loglevel': int_file_cfg[2]}
+                     for int_file_cfg in [int_file_cfg.split(':') for int_file_cfg in program_argument.inp_file_list]]
+        OUTP_FILE_DIR = program_argument.outp_file_dir
+        OUTP_FILES_NAME_LIST = program_argument.outp_file_name_list
+
     logagnet_write = LogagentWrite(RUNTIME, LOG_EVERY_N, INP_FILE_DIR, INP_FILES, OUTP_FILE_DIR, OUTP_FILES_NAME_LIST)
     logagnet_write.start()
 
