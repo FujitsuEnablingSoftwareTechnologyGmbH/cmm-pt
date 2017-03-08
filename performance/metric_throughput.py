@@ -76,6 +76,12 @@ class MetricThroughput(threading.Thread):
         return ["throughput", metric_per_sec,
                 datetime.datetime.now().replace(microsecond=0)]
 
+    def write_final_result_line_to_file(self, total_number_of_metric):
+        result_line = "Metric received: {}".format(total_number_of_metric)
+        print result_line
+        serialize_logging(self.results_file, result_line)
+
+
     def create_result_file(self):
         res_file = create_file("{}_{}_".format(TEST_NAME, self.metric_name))
         serialize_logging(res_file, "Time, difference, count, metric per sec")
@@ -126,6 +132,7 @@ class MetricThroughput(threading.Thread):
                     count_ticker_to_stop = 0
             if self.ticker_to_stop > query_time:
                 time.sleep(self.ticker_to_stop - query_time)
+        self.write_final_result_line_to_file(count)
         end_time = datetime.datetime.now().replace(microsecond=0)
         self.test_params = [['end_time', str(end_time)]]
         db_saver.save_test_params(self.testID, self.test_params)
