@@ -31,20 +31,12 @@ from write_logs import create_file, write_line_to_file
 
 TEST_NAME = "logagent_latency"
 
-TEST_CONF = yaml.load(file('test_configuration.yaml'))
-BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
-ELASTIC_URL = urlparse(BASIC_CONF['url']['elastic_url']).netloc
-CHECK_TIMEOUT = TEST_CONF[TEST_NAME]['check_timeout']
-CHECK_TICKER = TEST_CONF[TEST_NAME]['check_ticker']
-SEARCH_TICKER = TEST_CONF[TEST_NAME]['search_ticker']
-RUNTIME = TEST_CONF[TEST_NAME]['runtime']
-LOG_FILES = TEST_CONF[TEST_NAME]['log_files']
-
 
 class LatencyTest(threading.Thread):
-    def __init__(self, check_ticker, search_ticker, check_timeout, runtime, log_file, log_directory, log_level,
+    def __init__(self, elastic_url, check_ticker, search_ticker, check_timeout, runtime, log_file, log_directory, log_level,
                  msg_size):
         threading.Thread.__init__(self, )
+        self.elastic_url = elastic_url
         self.log_directory = log_directory
         self.log_file = log_file
         self.log_level = log_level
@@ -74,7 +66,7 @@ class LatencyTest(threading.Thread):
                 self.write_latency_result(write_log_time, search_status, latency_time)
             else:
                 print 'COUNT :{} | FILE: {} | TIME: {} | Failed to find log in {} s'. \
-                    format(count,  self.log_file, time.strftime('%H:%M:%S ', time.localtime()), CHECK_TIMEOUT)
+                    format(count,  self.log_file, time.strftime('%H:%M:%S ', time.localtime()), self.check_timeout)
                 self.write_latency_result(write_log_time, search_status, '__')
             time.sleep(self.check_ticker)
 
@@ -109,7 +101,7 @@ class LatencyTest(threading.Thread):
         """
         timeout = time.time() + self.check_timeout
         while time.time() < timeout:
-            if search_logs.count_logs_by_app_message(message, ELASTIC_URL)[0] > 0:
+            if search_logs.count_logs_by_app_message(message, self.elastic_url)[0] > 0:
                 return 'OK'
             time.sleep(self.search_ticker)
         return 'FAILED'
@@ -128,16 +120,36 @@ class LatencyTest(threading.Thread):
                                    latency_check_status,
                                    latency))
 
+class LogagentLatency(threading.Thread):
+    def __init__(self, elastic_url, check_timeout, check_ticker, search_ticker, runtime, log_files):
+        threading.Thread.__init__(self, )
+        self.elastic_url = elastic_url
+        self.check_timeout = check_timeout
+        self.check_ticker = check_ticker
+        self.search_ticker = search_ticker
+        self.runtime = runtime
+        self.log_files = log_files
+
+    def run(self):
+        print ">>>>Start Latency test<<<<"
+        thread_list = []
+        for log_file in self.log_files:
+            t = LatencyTest(self.elastic_url, self.check_ticker, self.search_ticker, self.check_timeout, self.runtime,
+                            log_file['file'], log_file['directory'], log_file['log_level'], log_file['msg_size'])
+            t.start()
+            thread_list.append(t)
+
+        for thread in thread_list:
+            thread.join()
 
 if __name__ == "__main__":
-    print ">>>>Start Latency test<<<<"
-    thread_list = []
-    for log_file in LOG_FILES:
-        t = LatencyTest(CHECK_TICKER, SEARCH_TICKER, CHECK_TIMEOUT, RUNTIME,
-                        log_file['file'], log_file['directory'], log_file['log_level'], log_file['msg_size'])
-        t.start()
-        thread_list.append(t)
-
-    for thread in thread_list:
-        thread.join()
-
+    TEST_CONF = yaml.load(file('test_configuration.yaml'))
+    BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+    ELASTIC_URL = urlparse(BASIC_CONF['url']['elastic_url']).netloc
+    CHECK_TIMEOUT = TEST_CONF[TEST_NAME]['check_timeout']
+    CHECK_TICKER = TEST_CONF[TEST_NAME]['check_ticker']
+    SEARCH_TICKER = TEST_CONF[TEST_NAME]['search_ticker']
+    RUNTIME = TEST_CONF[TEST_NAME]['runtime']
+    LOG_FILES = TEST_CONF[TEST_NAME]['log_files']
+    logagent_latency = LogagentLatency(ELASTIC_URL, CHECK_TIMEOUT, CHECK_TICKER, SEARCH_TICKER, RUNTIME, LOG_FILES)
+    logagent_latency.start()
