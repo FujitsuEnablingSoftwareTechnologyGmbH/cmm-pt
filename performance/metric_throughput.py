@@ -81,7 +81,6 @@ class MetricThroughput(threading.Thread):
         print result_line
         serialize_logging(self.results_file, result_line)
 
-
     def create_result_file(self):
         res_file = create_file("{}_{}_".format(TEST_NAME, self.metric_name))
         serialize_logging(res_file, "Time, difference, count, metric per sec")
