@@ -121,6 +121,7 @@ class MetricThroughput(threading.Thread):
         start_time = time.time()
         count_ticker_to_stop = 0
         query_time = 0
+        count_different = 0
         last_query_time = time.time()
         while True:
 
