@@ -42,7 +42,8 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 class MetricThroughput(threading.Thread):
 
     def __init__(self, influx_url, influx_port, influx_user, influx_password, influx_database, runtime, ticker,
-                 ticker_to_stop, metric_name, metric_dimension, mariadb_status):
+                 ticker_to_stop, metric_name, metric_dimension, mariadb_status, mariadb_username=None,
+                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None):
         threading.Thread.__init__(self)
         self.influx_ip = influx_url
         self.influx_port = influx_port
@@ -56,13 +57,24 @@ class MetricThroughput(threading.Thread):
         self.metric_dimensions = metric_dimension
         self.results_file = self.create_result_file()
         self.mariadb_status = mariadb_status
+        self.mariadb_database = mariadb_database
+        self.mariadb_username = mariadb_username
+        self.mariadb_password = mariadb_password
+        self.mariadb_hostname = mariadb_hostname
         if self.mariadb_status == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            # The following parameter "1" will be changed into the testCaseID provided by the shell script
-            self.testID = db_saver.save_test(db, 1, TEST_NAME)
-            self.test_results = list()
-            self.test_params = list()
-            db.close()
+            if ((self.mariadb_hostname is not None) and
+                (self.mariadb_username is not None) and
+                    (self.mariadb_database is not None)):
+                db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                     self.mariadb_password, self.mariadb_database)
+                # The following parameter "1" will be changed into the testCaseID provided by the shell script
+                self.testID = db_saver.save_test(db, 1, TEST_NAME)
+                self.test_results = list()
+                self.test_params = list()
+                db.close()
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
 
     def create_query(self):
         """create influx select query that return number of test metric """
@@ -143,13 +155,15 @@ class MetricThroughput(threading.Thread):
                     count_ticker_to_stop = 0
             if self.ticker_to_stop > query_time:
                 time.sleep(self.ticker_to_stop - query_time)
+        self.write_final_result_line_to_file(count)
         if self.mariadb_status == 'enabled':
             self.test_params = [['start_time', str(strt_time)],
                                 ['end_time', str(datetime.datetime.now().replace(microsecond=0))],
                                 ['metric_name', str(self.metric_name)],
                                 ['runtime', str(self.runtime)],
                                 ['total_logs',str(count)]]
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                 self.mariadb_password, self.mariadb_database)
             db_saver.save_test_params(db, self.testID, self.test_params)
             db_saver.save_test_results(db, self.testID, self.test_results)
             db.close()
@@ -158,6 +172,10 @@ class MetricThroughput(threading.Thread):
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
+    parser.add_argument('-mariadb_username', action='store', dest='mariadb_username')
+    parser.add_argument('-mariadb_password', action='store', dest='mariadb_password')
+    parser.add_argument('-mariadb_hostname', action='store', dest='mariadb_hostname')
+    parser.add_argument('-mariadb_database', action='store', dest='mariadb_database')
     parser.add_argument('-influx_url', action='store', dest='influx_url', type=str)
     parser.add_argument('-influx_usr', action='store', dest='influx_usr', type=str)
     parser.add_argument('-influx_password', action='store', dest='influx_password', type=str)
@@ -175,6 +193,11 @@ if __name__ == "__main__":
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
         MARIADB_STATUS = BASIC_CONF['mariadb']['status']
+        MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
+            if BASIC_CONF['mariadb']['password'] is not None else ''
+        MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+        MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
         INFLUX_URL = BASIC_CONF['url']['influxdb']
         INFLUX_USER = BASIC_CONF['influxdb']['user']
         INFLUX_PASSWORD = BASIC_CONF['influxdb']['password']
@@ -187,6 +210,11 @@ if __name__ == "__main__":
     else:
         program_argument = create_program_argument_parser()
         MARIADB_STATUS = program_argument.mariadb_status
+        MARIADB_USERNAME = program_argument.mariadb_username
+        MARIADB_PASSWORD = program_argument.mariadb_password \
+            if program_argument.mariadb_password is not None else ''
+        MARIADB_HOSTNAME = program_argument.mariadb_hostname
+        MARIADB_DATABASE = program_argument.mariadb_database
         INFLUX_URL = program_argument.influx_url
         INFLUX_USER = program_argument.influx_usr
         INFLUX_PASSWORD = program_argument.influx_password
@@ -200,7 +228,8 @@ if __name__ == "__main__":
 
     metric_throughput = MetricThroughput(INFLUX_URL.split(':')[0], INFLUX_URL.split(':')[1], INFLUX_USER,
                                          INFLUX_PASSWORD, INFLUX_DATABASE, RUNTIME, TICKER, TICKER_TO_STOP,
-                                         METRIC_NAME, METRIC_DIMENSIONS, MARIADB_STATUS)
+                                         METRIC_NAME, METRIC_DIMENSIONS, MARIADB_STATUS, MARIADB_USERNAME,
+                                         MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE)
     metric_throughput.start()
 
 

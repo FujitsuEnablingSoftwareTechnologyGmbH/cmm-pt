@@ -43,9 +43,14 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 
 class LogThroughput(threading.Thread):
     def __init__(self, tenant_project, elastic_url, runtime, ticker,
-                 search_string_list, search_field, num_to_stop, mariadb_status):
+                 search_string_list, search_field, num_to_stop, mariadb_status, mariadb_username=None,
+                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
+        self.mariadb_database = mariadb_database
+        self.mariadb_username = mariadb_username
+        self.mariadb_password = mariadb_password
+        self.mariadb_hostname = mariadb_hostname
         self.tenant_project = tenant_project
         self.elastic_url = elastic_url
         self.runtime = runtime
@@ -54,13 +59,19 @@ class LogThroughput(threading.Thread):
         self.search_field = search_field
         self.num_to_stop = num_to_stop
         self.result_file = self.create_result_file()
-        self.mariadb_status = mariadb_status
         if self.mariadb_status == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            # The following parameter "1" will be changed into the testCaseID provided by the shell script
-            self.testID = db_saver.save_test(db, 1, TEST_NAME)
-            self.test_params = list()
-            db.close()
+            if ((self.mariadb_hostname is not None) and
+                (self.mariadb_username is not None) and
+                    (self.mariadb_database is not None)):
+                db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                     self.mariadb_password, self.mariadb_database)
+                # The following parameter "1" will be changed into the testCaseID provided by the shell script
+                self.testID = db_saver.save_test(db, 1, TEST_NAME)
+                self.test_params = list()
+                db.close()
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
 
     def count_log_entries(self, search_str):
         """this function return number of specified log entries from elasticsearch database
@@ -116,7 +127,8 @@ class LogThroughput(threading.Thread):
         print("-----Test Results----- :" + TEST_NAME)
         print("End Time: ", datetime.datetime.now().strftime("%H:%M:%S.%f"))
         if self.mariadb_status == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                 self.mariadb_password, self.mariadb_database)
             end_time = datetime.datetime.now().replace(microsecond=0)
             db_saver.save_test_results(db, self.testID, testresults)
             db.close
@@ -127,7 +139,8 @@ class LogThroughput(threading.Thread):
             serialize_logging(self.result_file, "total logs={}".
                               format(str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])))
         if self.mariadb_status == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                 self.mariadb_password, self.mariadb_database)
             self.test_params = [['total_logs', str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])],
                            ['start_time', str(start_time)],
                            ['end_time', str(end_time)],
@@ -159,6 +172,12 @@ class LogThroughput(threading.Thread):
 
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
+    parser.add_argument('-mariadb_username', action='store', dest='mariadb_username')
+    parser.add_argument('-mariadb_password', action='store', dest='mariadb_password')\
+        if BASIC_CONF['mariadb']['password'] is not None else ''
+    parser.add_argument('-mariadb_hostname', action='store', dest='mariadb_hostname')
+    parser.add_argument('-mariadb_database', action='store', dest='mariadb_database')
     parser.add_argument('-tenant_project', action="store", dest='tenant_project')
     parser.add_argument('-elastic_url', action="store", dest='elastic_url')
     parser.add_argument('-runtime', action="store", dest='runtime', type=int)
@@ -173,6 +192,11 @@ if __name__ == "__main__":
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
         MARIADB_STATUS = BASIC_CONF['mariadb']['status']
+        MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
+            if BASIC_CONF['mariadb']['password'] is not None else ''
+        MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+        MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
         TENANT_PROJECT = BASIC_CONF['users']['tenant_project']
         ELASTIC_URL = urlparse(BASIC_CONF['url']['elastic_url']).netloc
         RUNTIME = TEST_CONF[TEST_NAME]['runtime']
@@ -183,6 +207,10 @@ if __name__ == "__main__":
     else:
         program_argument = create_program_argument_parser()
         MARIADB_STATUS = program_argument.mariadb_status
+        MARIADB_USERNAME = program_argument.mariadb_username
+        MARIADB_PASSWORD = program_argument.mariadb_password
+        MARIADB_HOSTNAME = program_argument.mariadb_hostname
+        MARIADB_DATABASE = program_argument.mariadb_database
         TENANT_PROJECT = program_argument.tenant_project
         ELASTIC_URL = urlparse(program_argument.elastic_url).netloc
         RUNTIME = program_argument.runtime
@@ -193,5 +221,6 @@ if __name__ == "__main__":
     print("Start Time: {} ".format(datetime.datetime.now().strftime("%H:%M:%S.%f")))
 
     log_throughput = LogThroughput(TENANT_PROJECT, ELASTIC_URL, RUNTIME, TICKER, SEARCH_STRING_LIST, SEARCH_FIELD,
-                                   NUM_TO_STOP, MARIADB_STATUS)
+                                   NUM_TO_STOP, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                   MARIADB_DATABASE)
     log_throughput.start()

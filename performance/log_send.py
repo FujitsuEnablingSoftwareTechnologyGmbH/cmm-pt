@@ -49,10 +49,15 @@ db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIA
 
 class LogSend(threading.Thread):
     def __init__(self, keystone_url, log_api_url, tenant_username, tenant_password, tenant_project, thread_num,
-                 runtime, log_every_n, log_api_type, bulk_size, frequency,
-                 log_size, log_level, log_dimension, delay, mariadb_status):
+                 runtime, log_every_n, log_api_type, bulk_size, frequency, log_size, log_level, log_dimension,
+                 delay, mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
+                 mariadb_database=None):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
+        self.mariadb_database = mariadb_database
+        self.mariadb_username = mariadb_username
+        self.mariadb_password = mariadb_password
+        self.mariadb_hostname = mariadb_hostname
         self.keystone_url = keystone_url
         self.log_api_url = log_api_url
         self.tenant_username = tenant_username
@@ -73,11 +78,18 @@ class LogSend(threading.Thread):
         self.result_file = self.create_result_file()
         self.token_handler.get_valid_token()
         if self.mariadb_status == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            # The following parameter "1" will be changed into the testCaseID provided by the shell script
-            self.testID = db_saver.save_test(db, 1, TEST_NAME)
-            self.test_params = list()
-            db.close()
+            if ((self.mariadb_hostname is not None) and
+                (self.mariadb_username is not None) and
+                    (self.mariadb_database is not None)):
+                db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                     self.mariadb_password, self.mariadb_database)
+                # The following parameter "1" will be changed into the testCaseID provided by the shell script
+                self.testID = db_saver.save_test(db, 1, TEST_NAME)
+                self.test_params = list()
+                db.close()
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
 
     def generate_log_message(self, size=50, count=0):
         """Return unique massage that contain current data, Count value and random massage
@@ -195,7 +207,8 @@ class LogSend(threading.Thread):
                        ['bulk_size', self.bulk_size],
                        ['frequency', str(self.frequency)]]
         if self.mariadb_status == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                 self.mariadb_password, self.mariadb_database)
             db_saver.save_test_params(db, self.testID, self.test_params)
             db.close()
 
@@ -233,6 +246,12 @@ class LogSend(threading.Thread):
 
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
+    parser.add_argument('-mariadb_username', action='store', dest='mariadb_username')
+    parser.add_argument('-mariadb_password', action='store', dest='mariadb_password')\
+        if BASIC_CONF['mariadb']['password'] is not None else ''
+    parser.add_argument('-mariadb_hostname', action='store', dest='mariadb_hostname')
+    parser.add_argument('-mariadb_database', action='store', dest='mariadb_database')
     parser.add_argument('-keystone_url', action="store", dest='keystone_url')
     parser.add_argument('-log_api_url', action="store", dest='log_api_url')
     parser.add_argument('-tenant_name', action="store", dest='tenant_name')
@@ -256,6 +275,11 @@ if __name__ == "__main__":
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         MARIADB_STATUS = BASIC_CONF['mariadb']['status']
+        MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
+            if BASIC_CONF['mariadb']['password'] is not None else ''
+        MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+        MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
         KEYSTONE_URL = BASIC_CONF['url']['keystone']
         LOG_API_URL = BASIC_CONF['url']['log_api_url']
         TENANT_USERNAME = BASIC_CONF['users']['tenant_name']
@@ -274,6 +298,10 @@ if __name__ == "__main__":
     else:
         program_argument = create_program_argument_parser()
         MARIADB_STATUS = program_argument.mariadb_status
+        MARIADB_USERNAME = program_argument.mariadb_username
+        MARIADB_PASSWORD = program_argument.mariadb_password
+        MARIADB_HOSTNAME = program_argument.mariadb_hostname
+        MARIADB_DATABASE = program_argument.mariadb_database
         KEYSTONE_URL = program_argument.keystone_url
         LOG_API_URL = program_argument.log_api_url
         TENANT_USERNAME = program_argument.tenant_name
@@ -293,7 +321,8 @@ if __name__ == "__main__":
 
     log_send = LogSend(KEYSTONE_URL, LOG_API_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT, THREADS_NUM,
                        RUNTIME, LOG_EVERY_N, LOG_API_TYPE, NUM_Of_LOGS_IN_ONE_BULK, FREQUENCY, LOG_SIZE,
-                       LOG_LEVEL, LOG_DIMENSION, DELAY, MARIADB_STATUS)
+                       LOG_LEVEL, LOG_DIMENSION, DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
+                       MARIADB_HOSTNAME, MARIADB_DATABASE)
     log_send.start()
 
 
