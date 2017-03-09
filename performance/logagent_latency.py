@@ -18,6 +18,7 @@ Once a log entry is write  to the file that is monitored by monasca-log-agent th
 entry from the Elasticsearch API.
 The time it takes from write  until retrieving the same entry via the Elasticsearch API is measured.
 """
+import argparse
 import logging
 import search_logs
 import time
@@ -25,6 +26,7 @@ import threading
 import random
 import os
 import string
+import sys
 import yaml
 from urlparse import urlparse
 from write_logs import create_file, write_line_to_file
@@ -142,14 +144,36 @@ class LogagentLatency(threading.Thread):
         for thread in thread_list:
             thread.join()
 
+def create_program_argument_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-runtime', action='store', dest='runtime', type=int)
+    parser.add_argument('-elastic_url', action='store', dest='elastic_url', type=str)
+    parser.add_argument('-check_timeout', action='store', dest='check_timeout', type=int)
+    parser.add_argument('-check_ticker', action='store', dest='check_ticker', type=float)
+    parser.add_argument('-search_ticker', action='store', dest='search_ticker', type=float)
+    parser.add_argument('-log_files', action='store', dest='log_files', nargs='+')
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    TEST_CONF = yaml.load(file('test_configuration.yaml'))
-    BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
-    ELASTIC_URL = urlparse(BASIC_CONF['url']['elastic_url']).netloc
-    CHECK_TIMEOUT = TEST_CONF[TEST_NAME]['check_timeout']
-    CHECK_TICKER = TEST_CONF[TEST_NAME]['check_ticker']
-    SEARCH_TICKER = TEST_CONF[TEST_NAME]['search_ticker']
-    RUNTIME = TEST_CONF[TEST_NAME]['runtime']
-    LOG_FILES = TEST_CONF[TEST_NAME]['log_files']
+    if len(sys.argv) <= 1:
+        TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        ELASTIC_URL = urlparse(BASIC_CONF['url']['elastic_url']).netloc
+        CHECK_TIMEOUT = TEST_CONF[TEST_NAME]['check_timeout']
+        CHECK_TICKER = TEST_CONF[TEST_NAME]['check_ticker']
+        SEARCH_TICKER = TEST_CONF[TEST_NAME]['search_ticker']
+        RUNTIME = TEST_CONF[TEST_NAME]['runtime']
+        LOG_FILES = TEST_CONF[TEST_NAME]['log_files']
+    else:
+        program_argument = create_program_argument_parser()
+        ELASTIC_URL = urlparse(program_argument.elastic_url).netloc
+        CHECK_TIMEOUT = program_argument.check_timeout
+        CHECK_TICKER = program_argument.check_ticker
+        SEARCH_TICKER = program_argument.search_ticker
+        RUNTIME = program_argument.runtime
+        LOG_FILES = [{'file': log_file[0], 'directory': log_file[1], 'log_level': log_file[2],
+                      'msg_size': int(log_file[3])} for log_file in
+                     [log_file.split(':') for log_file in program_argument.log_files]]
+
     logagent_latency = LogagentLatency(ELASTIC_URL, CHECK_TIMEOUT, CHECK_TICKER, SEARCH_TICKER, RUNTIME, LOG_FILES)
     logagent_latency.start()

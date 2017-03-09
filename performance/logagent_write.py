@@ -170,7 +170,7 @@ class LogagentWrite(threading.Thread):
                                  q, input_file['loglevel'])
                 t.start()
 
-            write_thread = LogWriter(out_file, q, self.log_every_n, self.runtime)
+            write_thread = LogWriter(self.outp_file_dir + out_file, q, self.log_every_n, self.runtime)
             write_thread.start()
             write_thread_list.append(write_thread)
 
