@@ -19,7 +19,8 @@ TestSuite1:
             ticker: 10 
             num_stop: 10
             search_field: application_type
-            search_string: systemtest
+            search_string:
+                - systemtest
             
         log_latency:
           - num_threads: 1
@@ -164,7 +165,7 @@ TestSuite4a:
            log_api_type: bulk
            num_of_logs_in_one_bulk: 125
            log_size: 200
-           runtime:  3600
+           runtime:  120
            frequency: 8
            log_level: INFO
            dimension:
@@ -175,33 +176,33 @@ TestSuite4a:
            log_api_type: bulk
            num_of_logs_in_one_bulk: 1           
            log_size: 200
-           runtime:  3600
+           runtime:  120
            frequency: 0.1
            log_level: ERROR
            dimension:
            - key: hostname
-             value: systemtestERROR  
+             value: systemtestERROR
          - num_threads: 1
            log_every_n: 10
            log_api_type: bulk
            num_of_logs_in_one_bulk: 1
            log_size: 200
-           runtime:  3600
+           runtime:  120
            frequency: 0.1
            log_level: WARNING
            dimension:
            - key: hostname
-             value: systemtestWARING              
+             value: systemtestWARNING
         metric_throughput:
-         - runtime: 3600
-           metric_name: log.ERROR
+         - runtime: 120
+           metric_name: log.error
            ticker: 10
            ticker_to_stop: 10
            metric_dimensions:
             - key: hostname
               value: systemtestERROR
-         - runtime: 3600
-           metric_name: log.WARNING
+         - runtime: 120
+           metric_name: log.warning
            ticker: 10
            ticker_to_stop: 10
            metric_dimensions:
