@@ -3,7 +3,7 @@ use cmm;
 
 CREATE TABLE `TestCase` (
 	`testCaseID` INT NOT NULL auto_increment,
-	`testSuite` VARCHAR(4) NOT NULL,
+	`testSuite` VARCHAR(12) NOT NULL,
 	`startTime` DATETIME NOT NULL,
 	`endTime` DATETIME,
 	PRIMARY KEY (`testCaseID`)
@@ -30,4 +30,4 @@ ALTER TABLE `Test` ADD CONSTRAINT `Test_TestCase_fk` FOREIGN KEY (`testCaseID`) 
 ALTER TABLE `Result` ADD CONSTRAINT `Result_Test_fk` FOREIGN KEY (`testID`) REFERENCES `Test`(`testID`) ON DELETE CASCADE;
 
 -- The following line will be deleted once the launcher program is ready
-Insert into TestCase(testSuite, startTime) values ('4a', NOW());
+Insert into TestCase(testCaseID, testSuite, startTime) values ('1', 'default', NOW());
