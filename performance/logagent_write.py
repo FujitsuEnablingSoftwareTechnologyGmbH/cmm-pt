@@ -146,30 +146,32 @@ class LogGenerator(threading.Thread):
 
 
 class LogagentWrite(threading.Thread):
-    def __init__(self, runtime, log_every_n, inp_file_dir, inp_files, outp_file_dir, outp_files_name_list):
+    def __init__(self, runtime, log_every_n, inp_file_dir, inp_files, outp_file_dir, outp_file_name, outp_count,outp_ext):
         threading.Thread.__init__(self)
         self.runtime = runtime
         self.log_every_n = log_every_n
         self.inp_file_dir = inp_file_dir
         self.inp_files = inp_files
         self.outp_file_dir = outp_file_dir
-        self.outp_files_name_list = outp_files_name_list
+        self.outp_file = outp_file_name
+        self.outp_count = outp_count
+        self.outp_ext = outp_ext
         self.result_file = create_file(TEST_NAME + "_final")
 
     def run(self):
         write_thread_list = []
         total_log_count = 0
 
-        for output_file_name in self.outp_files_name_list:
+        for i in range(self.outp_count):
             q = Queue()
 
             for input_file in self.inp_files:
                 message = self.get_message_from_input_file(self.inp_file_dir + input_file['name'])
-                t = LogGenerator(self.runtime, message, input_file['frequency'], input_file['name'], output_file_name,
+                t = LogGenerator(self.runtime, message, input_file['frequency'], input_file['name'], self.outp_file + str(i)+self.outp_ext,
                                  q, input_file['loglevel'])
                 t.start()
 
-            write_thread = LogWriter(self.outp_file_dir + output_file_name, q, self.log_every_n, self.runtime)
+            write_thread = LogWriter(self.outp_file_dir + self.outp_file + str(i)+self.outp_ext, q, self.log_every_n, self.runtime)
             write_thread.start()
             write_thread_list.append(write_thread)
 
@@ -195,7 +197,9 @@ def create_program_argument_parser():
     parser.add_argument('-inp_file_dir', action='store', dest='inp_file_dir', type=str)
     parser.add_argument('-inp_file_list', action='store', dest='inp_file_list', nargs='+')
     parser.add_argument('-outp_file_dir', action='store', dest='outp_file_dir', type=str)
-    parser.add_argument('-outp_file_name_list', action='store', dest='outp_file_name_list', nargs='+')
+    parser.add_argument('-outp_file_name', action='store', dest='outp_file_name', type=str)
+    parser.add_argument('-outp_count', action='store', dest='outp_count',type=int)
+    parser.add_argument('-outp_ext', action='store', dest='outp_ext', type=str)
 
     return parser.parse_args()
 
@@ -208,7 +212,9 @@ if __name__ == "__main__":
         INP_FILE_DIR = TEST_CONF[TEST_NAME]['inp_file_dir']
         INP_FILES = TEST_CONF[TEST_NAME]['inp_file_list']
         OUTP_FILE_DIR = TEST_CONF[TEST_NAME]['outp_file_dir']
-        OUTP_FILES_NAME_LIST = TEST_CONF[TEST_NAME]['outp_file_name']
+        OUTP_FILES_NAME = TEST_CONF[TEST_NAME]['outp_file_name']
+        OUTP_COUNT = TEST_CONF[TEST_NAME]['outp_count']
+        OUTP_EXT = TEST_CONF[TEST_NAME]['outp_ext']
     else:
         program_argument = create_program_argument_parser()
         RUNTIME = program_argument.runtime
@@ -217,9 +223,11 @@ if __name__ == "__main__":
         INP_FILES = [{'name': int_file_cfg[0], 'frequency': int(int_file_cfg[1]), 'loglevel': int_file_cfg[2]}
                      for int_file_cfg in [int_file_cfg.split(':') for int_file_cfg in program_argument.inp_file_list]]
         OUTP_FILE_DIR = program_argument.outp_file_dir
-        OUTP_FILES_NAME_LIST = program_argument.outp_file_name_list
+        OUTP_FILES_NAME = program_argument.outp_file_name
+        OUTP_COUNT = program_argument.outp_count
+        OUTP_EXT = program_argument.outp_ext
 
-    logagnet_write = LogagentWrite(RUNTIME, LOG_EVERY_N, INP_FILE_DIR, INP_FILES, OUTP_FILE_DIR, OUTP_FILES_NAME_LIST)
+    logagnet_write = LogagentWrite(RUNTIME, LOG_EVERY_N, INP_FILE_DIR, INP_FILES, OUTP_FILE_DIR, OUTP_FILES_NAME, OUTP_COUNT,OUTP_EXT)
     logagnet_write.start()
 
 

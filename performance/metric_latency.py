@@ -41,7 +41,7 @@ TEST_NAME = 'metric_latency'
 
 class MetricLatency(threading.Thread):
     def __init__(self, keystone_url, tenant_name, tenant_password, tenant_project, metric_api_url, runtime,
-                 check_frequency, send_frequency, timeout):
+                 check_ticker, send_ticker, timeout):
         threading.Thread.__init__(self)
         self.keystone_url = keystone_url
         self.tenant_name = tenant_name
@@ -49,8 +49,8 @@ class MetricLatency(threading.Thread):
         self.tenant_project = tenant_project
         self.metric_api_url = urlparse(metric_api_url)
         self.runtime = runtime
-        self.check_frequency = check_frequency
-        self.send_frequency = send_frequency
+        self.check_ticker = check_ticker
+        self.send_ticker = send_ticker
         self.timeout = timeout
         self.result_file = create_file(TEST_NAME)
         self.toke_handler = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
@@ -62,10 +62,10 @@ class MetricLatency(threading.Thread):
 
     def writ_header_to_result_file(self):
         write_line_to_file(self.result_file, "Metric Latency Test, Runtime = {}, Metric check frequency = {}, Metric send frequency ={}"
-                           .format(self.runtime, self.check_frequency, self.send_frequency))
-        self.test_params = [['check_frequency', str(self.check_frequency)],
+                           .format(self.runtime, self.check_ticker, self.send_ticker))
+        self.test_params = [['check_ticker', str(self.check_ticker)],
                        ['runtime', str(self.runtime)],
-                       ['send_frequency', str(self.send_frequency)]]
+                       ['send_ticker', str(self.send_ticker)]]
         db_saver.save_test_params(self.testID, self.test_params)
         write_line_to_file(self.result_file, "start_time, send_status, end_time, Latency")
 
@@ -126,7 +126,7 @@ class MetricLatency(threading.Thread):
                     return "OK"
             except:
                 print "Unexpected error:" + sys.exc_info()[0]
-            time.sleep(self.check_frequency)
+            time.sleep(self.check_ticker)
 
         return "TIMEOUT"
 
@@ -145,7 +145,7 @@ class MetricLatency(threading.Thread):
                 check_status = self.check_until_metric_is_available(metric_timestamp_milliseconds)
                 res = self.write_result_to_result_file(time_before_check, check_status, time.time())
                 self.test_results.append(res)
-            time.sleep(self.send_frequency)
+            time.sleep(self.send_ticker)
         db_saver.save_test_results(self.testID, self.test_results)
         end_time = datetime.now().replace(microsecond=0)
         test_params = [['start_time', str(start_time)],
@@ -162,8 +162,8 @@ def create_program_argument_parser():
     parser.add_argument('-tenant_password', action="store", dest='tenant_password', type=str)
     parser.add_argument('-tenant_project', action="store", dest='tenant_project', type=str)
     parser.add_argument('-runtime', action="store", dest='runtime', type=int)
-    parser.add_argument('-check_frequency', action="store", dest='check_frequency', type=float)
-    parser.add_argument('-send_frequency', action="store", dest='send_frequency', type=int)
+    parser.add_argument('-check_ticker', action="store", dest='check_ticker', type=float)
+    parser.add_argument('-send_ticker', action="store", dest='send_ticker', type=int)
     parser.add_argument('-timeout', action="store", dest='timeout', type=int)
     return parser.parse_args()
 
@@ -178,8 +178,8 @@ if __name__ == "__main__":
                            "project": BASIC_CONF['users']['tenant_project']}
         METRIC_API_URL = BASIC_CONF['url']['metrics_api'] + "/metrics"
         RUNTIME = TEST_CONF[TEST_NAME]['runtime']
-        CHECK_FREQUENCY = TEST_CONF[TEST_NAME]['check_frequency']
-        SEND_FREQUENCY = TEST_CONF[TEST_NAME]['send_frequency']
+        CHECK_TICKER = TEST_CONF[TEST_NAME]['check_ticker']
+        SEND_TICKER = TEST_CONF[TEST_NAME]['send_ticker']
         TIMEOUT = TEST_CONF[TEST_NAME]['timeout']
 
     else:
@@ -190,12 +190,12 @@ if __name__ == "__main__":
                            "project": program_argument.tenant_project}
         METRIC_API_URL = program_argument.metric_api_url + "/metrics"
         RUNTIME = program_argument.runtime
-        CHECK_FREQUENCY = program_argument.check_frequency
-        SEND_FREQUENCY = program_argument.send_frequency
+        CHECK_TICKER = program_argument.check_ticker
+        SEND_TICKER = program_argument.send_ticker
         TIMEOUT = program_argument.timeout
 
     metric_latency = MetricLatency(KEYSTONE_URL, USER_CREDENTIAL['name'], USER_CREDENTIAL['password'],
-                                   USER_CREDENTIAL['project'], METRIC_API_URL, RUNTIME, CHECK_FREQUENCY, SEND_FREQUENCY,
+                                   USER_CREDENTIAL['project'], METRIC_API_URL, RUNTIME, CHECK_TICKER, SEND_TICKER,
                                    TIMEOUT)
     metric_latency.start()
 
