@@ -24,6 +24,7 @@ passed as program parameters"""
 import argparse
 import datetime
 import httplib
+import MySQLdb
 import random
 import simplejson
 import sys
@@ -37,12 +38,19 @@ from write_logs import create_file, write_line_to_file
 import db_saver
 
 TEST_NAME = 'metric_send'
+BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
+MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 
 
 class MetricSend(threading.Thread):
     def __init__(self, keystone_url, tenant_name, tenant_password, tenant_project, metric_api_url, num_threads,
-                 num_metric_per_request, log_every_n, runtime, frequency, metric_name, metric_dimension, delay):
+                 num_metric_per_request, log_every_n, runtime, frequency, metric_name, metric_dimension, delay,
+                 mariadb_status):
         threading.Thread.__init__(self)
+        self.mariadb_status = mariadb_status
         self.headers = {"Content-type": "application/json"}
         self.keystone_url = keystone_url
         self.tenant_name = tenant_name
@@ -60,8 +68,11 @@ class MetricSend(threading.Thread):
         self.result_file = self.create_result_file()
         self.TOKEN_HANDLER = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
                                                        self.keystone_url)
-        # The following parameter "1" will be changed into the testCaseID provided by the shell script
-        self.testID = db_saver.save_test(1, TEST_NAME)
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            # The following parameter "1" will be changed into the testCaseID provided by the shell script
+            self.testID = db_saver.save_test(db, 1, TEST_NAME)
+            db.close()
 
     def create_metric_body(self, process_id):
         """Create json metric request body that contain fallowing filed:
@@ -128,14 +139,17 @@ class MetricSend(threading.Thread):
                            .format(process_id, time.strftime('%H:%M:%S', time.localtime(start_time)),
                                    time.strftime('%H:%M:%S', time.localtime(stop_time)), total_metric_send,
                                    test_duration, metric_send_per_sec))
-        test_params = [['total_number_of_sent_metrics', str(total_metric_send)],
-                       ['start_time', strt_time],
-                       ['end_time', stp_time],
-                       ['runtime', str(self.runtime)],
-                       ['test_duration', str(test_duration)],
-                       ['avreage_per_second', str(metric_send_per_sec)],
-                       ['frequency', str(self.frequency)]]
-        db_saver.save_test_params(self.testID, test_params)
+        if self.mariadb_status == 'enabled':
+            test_params = [['total_number_of_sent_metrics', str(total_metric_send)],
+                           ['start_time', strt_time],
+                           ['end_time', stp_time],
+                           ['runtime', str(self.runtime)],
+                           ['test_duration', str(test_duration)],
+                           ['avreage_per_second', str(metric_send_per_sec)],
+                           ['frequency', str(self.frequency)]]
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.save_test_params(db, self.testID, test_params)
+            db.close()
         num_of_sent_metric_queue.put(count_metric_request_sent * self.num_metric_per_request)
         return
 
@@ -152,9 +166,12 @@ class MetricSend(threading.Thread):
         write_line_to_file(self.result_file,
                            "Total metric send = {}\nNumber of metrics per request: {} Number of threads: {}".
                            format(metric_send, self.num_metric_per_request, self.num_threads))
-        test_params = [['num_metrics_per_request', str(self.num_metric_per_request)],
-                       ['num_threads', str(self.num_threads)]]
-        db_saver.save_test_params(self.testID, test_params)
+        if self.mariadb_status == 'enabled':
+            test_params = [['num_metrics_per_request', str(self.num_metric_per_request)],
+                           ['num_threads', str(self.num_threads)]]
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.save_test_params(db, self.testID, test_params)
+            db.close
 
     def run(self):
         if self.delay is not None:
@@ -177,11 +194,11 @@ class MetricSend(threading.Thread):
 
         self.write_final_result_line_to_file(total_metric_send)
         self.result_file.close()
-        db_saver.close()
 
 
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-mariadb_status', action="store", dest='mariadb_status')
     parser.add_argument('-keystone_url', action="store", dest='keystone_url')
     parser.add_argument('-metric_api_url', action="store", dest='metric_api_url')
     parser.add_argument('-tenant_name', action="store", dest='tenant_name')
@@ -200,6 +217,7 @@ if __name__ == "__main__":
     if len(sys.argv) <= 1:
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         METRIC_API_URL = BASIC_CONF['url']['metrics_api'] + "/metrics"
         KEYSTONE_URL = BASIC_CONF['url']['keystone']
         TENANT_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
@@ -216,6 +234,7 @@ if __name__ == "__main__":
         DELAY = None
     else:
         program_argument = create_program_argument_parser()
+        MARIADB_STATUS = program_argument.mariadb_status
         KEYSTONE_URL = program_argument.keystone_url
         TENANT_CREDENTIAL = {"name": program_argument.tenant_name,
                              "password": program_argument.tenant_password,
@@ -236,5 +255,5 @@ if __name__ == "__main__":
                                               KEYSTONE_URL)
     metric_send = MetricSend(KEYSTONE_URL, TENANT_CREDENTIAL['name'], TENANT_CREDENTIAL['password'],
                              TENANT_CREDENTIAL['project'], METRIC_API_URL, NUM_THREADS, NUM_METRIC_PER_REQUEST,
-                             LOG_EVERY_N, RUNTIME, FREQUENCY, METRIC_NAME, METRIC_DIMENSION, DELAY)
+                             LOG_EVERY_N, RUNTIME, FREQUENCY, METRIC_NAME, METRIC_DIMENSION, DELAY, MARIADB_STATUS)
     metric_send.start()

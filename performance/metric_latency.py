@@ -23,6 +23,7 @@ The public variables are described in basic_configuration.yaml and test_configur
 import argparse
 import httplib
 import json
+import MySQLdb
 import random
 import threading
 import time
@@ -37,11 +38,16 @@ import db_saver
 
 
 TEST_NAME = 'metric_latency'
+BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
+MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 
 
 class MetricLatency(threading.Thread):
     def __init__(self, keystone_url, tenant_name, tenant_password, tenant_project, metric_api_url, runtime,
-                 check_ticker, send_ticker, timeout):
+                 check_ticker, send_ticker, timeout, mariadb_status):
         threading.Thread.__init__(self)
         self.keystone_url = keystone_url
         self.tenant_name = tenant_name
@@ -55,18 +61,25 @@ class MetricLatency(threading.Thread):
         self.result_file = create_file(TEST_NAME)
         self.toke_handler = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
                                                       self.keystone_url)
-        # The following parameter "1" will be changed into the testCaseID provided by the shell script
-        self.testID = db_saver.save_test(1, TEST_NAME)
-        self.test_results = list()
-        self.test_params = list()
+        self.mariadb_status = mariadb_status
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            # The following parameter "1" will be changed into the testCaseID provided by the shell script
+            self.testID = db_saver.save_test(db, 1, TEST_NAME)
+            db.close()
+            self.test_results = list()
+            self.test_params = list()
 
     def writ_header_to_result_file(self):
         write_line_to_file(self.result_file, "Metric Latency Test, Runtime = {}, Metric check frequency = {}, Metric send frequency ={}"
                            .format(self.runtime, self.check_ticker, self.send_ticker))
-        self.test_params = [['check_ticker', str(self.check_ticker)],
-                       ['runtime', str(self.runtime)],
-                       ['send_ticker', str(self.send_ticker)]]
-        db_saver.save_test_params(self.testID, self.test_params)
+        if self.mariadb_status == 'enabled':
+            self.test_params = [['check_ticker', str(self.check_ticker)],
+                           ['runtime', str(self.runtime)],
+                           ['send_ticker', str(self.send_ticker)]]
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.save_test_params(db, self.testID, self.test_params)
+            db.close
         write_line_to_file(self.result_file, "start_time, send_status, end_time, Latency")
 
     def write_result_to_result_file(self, start_time, check_status, end_time):
@@ -81,7 +94,8 @@ class MetricLatency(threading.Thread):
             print("timeout metric not found")
             write_line_to_file(self.result_file,
                                "{},{},{},{}".format(start_time_str, check_status, "---", "< " + str(self.timeout)))
-        return ["latency", str(latency), datetime.now().replace(microsecond=0)]
+        if self.mariadb_status == 'enabled':
+            return ["latency", str(latency), datetime.now().replace(microsecond=0)]
 
     def get_request_header(self):
         """ return header for request"""
@@ -143,19 +157,25 @@ class MetricLatency(threading.Thread):
             else:
                 time_before_check = time.time()
                 check_status = self.check_until_metric_is_available(metric_timestamp_milliseconds)
-                res = self.write_result_to_result_file(time_before_check, check_status, time.time())
-                self.test_results.append(res)
+                if self.mariadb_status == 'enabled':
+                    self.test_results.append(
+                        self.write_result_to_result_file(
+                            time_before_check, check_status, time.time()))
+                else:
+                    self.write_result_to_result_file(time_before_check, check_status, time.time())
             time.sleep(self.send_ticker)
-        db_saver.save_test_results(self.testID, self.test_results)
-        end_time = datetime.now().replace(microsecond=0)
-        test_params = [['start_time', str(start_time)],
-                       ['end_time', str(end_time)]]
-        db_saver.save_test_params(self.testID, test_params)
-        db_saver.close()
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.save_test_results(db, self.testID, self.test_results)
+            test_params = [['start_time', str(start_time)],
+                           ['end_time', str(datetime.now().replace(microsecond=0))]]
+            db_saver.save_test_params(db, self.testID, test_params)
+            db.close()
 
 
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-mariadb_status', action="store", dest='mariadb_status')
     parser.add_argument('-keystone_url', action="store", dest='keystone_url')
     parser.add_argument('-metric_api_url', action="store", dest='metric_api_url', type=str)
     parser.add_argument('-tenant_name', action="store", dest='tenant_name', type=str)
@@ -172,6 +192,7 @@ if __name__ == "__main__":
     if len(sys.argv) <= 1:
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         KEYSTONE_URL = BASIC_CONF['url']['keystone']
         USER_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
                            "password": BASIC_CONF['users']['tenant_password'],
@@ -184,6 +205,7 @@ if __name__ == "__main__":
 
     else:
         program_argument = create_program_argument_parser()
+        MARIADB_STATUS = program_argument.mariadb_status
         KEYSTONE_URL = program_argument.keystone_url
         USER_CREDENTIAL = {"name": program_argument.tenant_name,
                            "password": program_argument.tenant_password,
@@ -195,8 +217,8 @@ if __name__ == "__main__":
         TIMEOUT = program_argument.timeout
 
     metric_latency = MetricLatency(KEYSTONE_URL, USER_CREDENTIAL['name'], USER_CREDENTIAL['password'],
-                                   USER_CREDENTIAL['project'], METRIC_API_URL, RUNTIME, CHECK_TICKER, SEND_TICKER,
-                                   TIMEOUT)
+                                   USER_CREDENTIAL['project'], METRIC_API_URL, RUNTIME, CHECK_FREQUENCY, SEND_FREQUENCY,
+                                   TIMEOUT, MARIADB_STATUS)
     metric_latency.start()
 
 

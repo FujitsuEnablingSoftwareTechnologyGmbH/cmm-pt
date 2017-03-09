@@ -23,6 +23,7 @@ The logfile written contains this information.
 
 import argparse
 import datetime
+import MySQLdb
 import time
 import threading
 import search_logs
@@ -33,11 +34,18 @@ from urlparse import urlparse
 import db_saver
 
 TEST_NAME = "log_throughput"
+BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
+MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 
 
 class LogThroughput(threading.Thread):
-    def __init__(self, tenant_project, elastic_url, runtime, ticker, search_string_list, search_field, num_to_stop):
+    def __init__(self, tenant_project, elastic_url, runtime, ticker,
+                 search_string_list, search_field, num_to_stop, mariadb_status):
         threading.Thread.__init__(self)
+        self.mariadb_status = mariadb_status
         self.tenant_project = tenant_project
         self.elastic_url = elastic_url
         self.runtime = runtime
@@ -46,9 +54,13 @@ class LogThroughput(threading.Thread):
         self.search_field = search_field
         self.num_to_stop = num_to_stop
         self.result_file = self.create_result_file()
-        # The following parameter "1" will be changed into the testCaseID provided by the shell script
-        self.testID = db_saver.save_test(1, TEST_NAME)
-        self.test_params = list()
+        self.mariadb_status = mariadb_status
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            # The following parameter "1" will be changed into the testCaseID provided by the shell script
+            self.testID = db_saver.save_test(db, 1, TEST_NAME)
+            self.test_params = list()
+            db.close()
 
     def count_log_entries(self, search_str):
         """this function return number of specified log entries from elasticsearch database
@@ -86,8 +98,10 @@ class LogThroughput(threading.Thread):
                        format(search_string, check_result, different_log_entries_list[index]))
             log_check_count += 1
             log_check_time = time.time()
-            res = self.save_result_log_to_file(status, log_check_time, previous_log_check_time, different_log_entries_list)
-            testresults.append(res)
+            if self.mariadb_status == 'enabled':
+                testresults.append(self.save_result_log_to_file(status, log_check_time, previous_log_check_time, different_log_entries_list))
+            else:
+                self.save_result_log_to_file(status, log_check_time, previous_log_check_time, different_log_entries_list)
             previous_log_check_time = log_check_time
             if sum(different_log_entries_list) == 0:
                 if time.time() > (test_start_time + self.runtime - self.ticker):
@@ -101,20 +115,25 @@ class LogThroughput(threading.Thread):
         test_end_time = time.time()
         print("-----Test Results----- :" + TEST_NAME)
         print("End Time: ", datetime.datetime.now().strftime("%H:%M:%S.%f"))
-        end_time = datetime.datetime.now().replace(microsecond=0)
-        db_saver.save_test_results(self.testID, testresults)
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            end_time = datetime.datetime.now().replace(microsecond=0)
+            db_saver.save_test_results(db, self.testID, testresults)
+            db.close
         for index, search_string in enumerate(self.search_string_list):
             print("{}:{} log entries in {} seconds"
                   .format(search_string, number_of_log_in_last_request_list[index] - initial_number_of_log_list[index],
                           test_end_time - test_start_time))
             serialize_logging(self.result_file, "total logs={}".
                               format(str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])))
-        self.test_params = [['total_logs', str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])],
-                       ['start_time', str(start_time)],
-                       ['end_time', str(end_time)],
-                       ['runtime', str(self.runtime)]]
-        db_saver.save_test_params(self.testID, self.test_params)
-        db_saver.close()
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            self.test_params = [['total_logs', str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])],
+                           ['start_time', str(start_time)],
+                           ['end_time', str(end_time)],
+                           ['runtime', str(self.runtime)]]
+            db_saver.save_test_params(db, self.testID, self.test_params)
+            db.close()
 
     def save_result_log_to_file(self, count_status, count_time, last_count_time, num_entries_list):
         duration_secs = count_time - last_count_time
@@ -124,8 +143,9 @@ class LogThroughput(threading.Thread):
             my_logger += ", {}, {}".format(str(num_entries_list[index]),
                                            round((num_entries_list[index] / duration_secs), 2))
         serialize_logging(self.result_file, my_logger)
-        return ["throughput", round((num_entries_list[index] / duration_secs), 2),
-                datetime.datetime.now().replace(microsecond=0)]
+        if self.mariadb_status == 'enabled':
+            return ["throughput", round((num_entries_list[index] / duration_secs), 2),
+                    datetime.datetime.now().replace(microsecond=0)]
 
     def create_result_file(self):
         """create result file and save header line to this file """
@@ -152,6 +172,7 @@ if __name__ == "__main__":
     if len(sys.argv) <= 1:
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         TENANT_PROJECT = BASIC_CONF['users']['tenant_project']
         ELASTIC_URL = urlparse(BASIC_CONF['url']['elastic_url']).netloc
         RUNTIME = TEST_CONF[TEST_NAME]['runtime']
@@ -161,6 +182,7 @@ if __name__ == "__main__":
         SEARCH_FIELD = TEST_CONF[TEST_NAME]['search_field']
     else:
         program_argument = create_program_argument_parser()
+        MARIADB_STATUS = program_argument.mariadb_status
         TENANT_PROJECT = program_argument.tenant_project
         ELASTIC_URL = urlparse(program_argument.elastic_url).netloc
         RUNTIME = program_argument.runtime
@@ -171,5 +193,5 @@ if __name__ == "__main__":
     print("Start Time: {} ".format(datetime.datetime.now().strftime("%H:%M:%S.%f")))
 
     log_throughput = LogThroughput(TENANT_PROJECT, ELASTIC_URL, RUNTIME, TICKER, SEARCH_STRING_LIST, SEARCH_FIELD,
-                                   NUM_TO_STOP)
+                                   NUM_TO_STOP, MARIADB_STATUS)
     log_throughput.start()

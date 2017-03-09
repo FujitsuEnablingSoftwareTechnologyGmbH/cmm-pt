@@ -21,6 +21,7 @@ All test result are writen to the file.
 
 import argparse
 import datetime
+import MySQLdb
 import sys
 import time
 import yaml
@@ -31,12 +32,17 @@ from write_logs import create_file, serialize_logging
 import db_saver
 
 TEST_NAME = 'metric_throughput'
+BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
+MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 
 
 class MetricThroughput(threading.Thread):
 
     def __init__(self, influx_url, influx_port, influx_user, influx_password, influx_database, runtime, ticker,
-                 ticker_to_stop, metric_name, metric_dimension):
+                 ticker_to_stop, metric_name, metric_dimension, mariadb_status):
         threading.Thread.__init__(self)
         self.influx_ip = influx_url
         self.influx_port = influx_port
@@ -49,10 +55,14 @@ class MetricThroughput(threading.Thread):
         self.metric_name = metric_name
         self.metric_dimensions = metric_dimension
         self.results_file = self.create_result_file()
-        # The following parameter "1" will be changed into the testCaseID provided by the shell script
-        self.testID = db_saver.save_test(1, TEST_NAME)
-        self.test_results = list()
-        self.test_params = list()
+        self.mariadb_status = mariadb_status
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            # The following parameter "1" will be changed into the testCaseID provided by the shell script
+            self.testID = db_saver.save_test(db, 1, TEST_NAME)
+            self.test_results = list()
+            self.test_params = list()
+            db.close()
 
     def create_query(self):
         """create influx select query that return number of test metric """
@@ -60,11 +70,6 @@ class MetricThroughput(threading.Thread):
         for dimension in self.metric_dimensions:
             dimensions.append("{} = \'{}\'".format(dimension['key'], dimension['value']))
         current_utc_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        strt_time = datetime.datetime.now().replace(microsecond=0)
-        self.test_params = [['start_time', str(strt_time)],
-                       ['metric_name', str(self.metric_name)],
-                       ['runtime', str(self.runtime)]]
-        db_saver.save_test_params(self.testID, self.test_params)
         return "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
             .format(self.metric_name, current_utc_time, " AND ".join(dimensions))
 
@@ -73,8 +78,9 @@ class MetricThroughput(threading.Thread):
         print("Time: {}; count: {} = {} per second".format(current_time, total_metric, metric_per_sec))
         serialize_logging(self.results_file, str(current_time) + ',' + str(total_metric) +
                           ',' + str(metric_difference) + ',' + str(metric_per_sec))
-        return ["throughput", metric_per_sec,
-                datetime.datetime.now().replace(microsecond=0)]
+        if self.mariadb_status == 'enabled':
+            return ["throughput", metric_per_sec,
+                    datetime.datetime.now().replace(microsecond=0)]
 
     def write_final_result_line_to_file(self, total_number_of_metric):
         result_line = "Metric received: {}".format(total_number_of_metric)
@@ -96,6 +102,7 @@ class MetricThroughput(threading.Thread):
     def run(self):
 
         query = self.create_query()
+        strt_time = datetime.datetime.now().replace(microsecond=0)
         client = InfluxDBClient(self.influx_ip, self.influx_port, self.influx_user, self.influx_password,
                                 self.influx_database)
         count = 0
@@ -113,8 +120,13 @@ class MetricThroughput(threading.Thread):
                 count = count_after_request
                 time_after_query = time.time()
                 query_time = time_after_query - time_before_query
-                res = self.write_result_to_file(count, count_different, count_different / (time_after_query - last_query_time))
-                self.test_results.append(res)
+                if self.mariadb_status == 'enabled':
+                    self.test_results.append(
+                        self.write_result_to_file(
+                            count, count_different, count_different / (time_after_query - last_query_time)))
+                else:
+                    self.write_result_to_file(count, count_different, count_different /
+                                              (time_after_query - last_query_time))
                 last_query_time = time.time()
             except InfluxDBClientError as e:
 
@@ -131,16 +143,21 @@ class MetricThroughput(threading.Thread):
                     count_ticker_to_stop = 0
             if self.ticker_to_stop > query_time:
                 time.sleep(self.ticker_to_stop - query_time)
-        self.write_final_result_line_to_file(count)
-        end_time = datetime.datetime.now().replace(microsecond=0)
-        self.test_params = [['end_time', str(end_time)]]
-        db_saver.save_test_params(self.testID, self.test_params)
-        db_saver.save_test_results(self.testID, self.test_results)
-        db_saver.close()
+        if self.mariadb_status == 'enabled':
+            self.test_params = [['start_time', str(strt_time)],
+                                ['end_time', str(datetime.datetime.now().replace(microsecond=0))],
+                                ['metric_name', str(self.metric_name)],
+                                ['runtime', str(self.runtime)],
+                                ['total_logs',str(count)]]
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.save_test_params(db, self.testID, self.test_params)
+            db_saver.save_test_results(db, self.testID, self.test_results)
+            db.close()
 
 
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
     parser.add_argument('-influx_url', action='store', dest='influx_url', type=str)
     parser.add_argument('-influx_usr', action='store', dest='influx_usr', type=str)
     parser.add_argument('-influx_password', action='store', dest='influx_password', type=str)
@@ -157,6 +174,7 @@ if __name__ == "__main__":
     if len(sys.argv) <= 1:
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         INFLUX_URL = BASIC_CONF['url']['influxdb']
         INFLUX_USER = BASIC_CONF['influxdb']['user']
         INFLUX_PASSWORD = BASIC_CONF['influxdb']['password']
@@ -168,6 +186,7 @@ if __name__ == "__main__":
         METRIC_DIMENSIONS = TEST_CONF[TEST_NAME]['metric_dimensions']
     else:
         program_argument = create_program_argument_parser()
+        MARIADB_STATUS = program_argument.mariadb_status
         INFLUX_URL = program_argument.influx_url
         INFLUX_USER = program_argument.influx_usr
         INFLUX_PASSWORD = program_argument.influx_password
@@ -181,7 +200,7 @@ if __name__ == "__main__":
 
     metric_throughput = MetricThroughput(INFLUX_URL.split(':')[0], INFLUX_URL.split(':')[1], INFLUX_USER,
                                          INFLUX_PASSWORD, INFLUX_DATABASE, RUNTIME, TICKER, TICKER_TO_STOP,
-                                         METRIC_NAME, METRIC_DIMENSIONS)
+                                         METRIC_NAME, METRIC_DIMENSIONS, MARIADB_STATUS)
     metric_throughput.start()
 
 

@@ -23,6 +23,7 @@ The public variables are described in basic_configuration.yaml and test_configur
 import argparse
 import datetime
 import httplib
+import MySQLdb
 import random
 import search_logs
 import simplejson
@@ -41,12 +42,18 @@ import db_saver
 TEST_NAME = 'log_latency'
 BULK_URL_PATH = '/v3.0/logs'
 SINGLE_LOG_API_URL_PATH = '/v2.0/log/single'
+BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
+MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 
 
 class LogLatency(threading.Thread):
     def __init__(self, keystone_url, log_api_url, elastic_url, tenant_username, tenant_password, tenant_project,
-                 runtime, thread_num, log_api_type, bulk_size, log_size):
+                 runtime, thread_num, log_api_type, bulk_size, log_size, mariadb_status):
         threading.Thread.__init__(self)
+        self.mariadb_status = mariadb_status
         self.keystone_url = keystone_url
         self.log_api_url = log_api_url
         self.elastic_url = elastic_url
@@ -60,8 +67,11 @@ class LogLatency(threading.Thread):
         self.log_size = log_size
         self.token_handler = TokenHandler.TokenHandler(tenant_username, tenant_password, tenant_project, keystone_url)
         self.result_file = self.create_result_file()
-        # The following parameter "1" will be changed into the testCaseID provided by the launcher script
-        self.testID = db_saver.save_test(1, TEST_NAME)
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            # The following parameter "1" will be changed into the testCaseID provided by the launcher script
+            self.testID = db_saver.save_test(db, 1, TEST_NAME)
+            db.close()
 
     def search_logs_in_elastic(self, message, duration, check_rate):
         """this function search logs entry that contain specified message in database,
@@ -140,20 +150,30 @@ class LogLatency(threading.Thread):
             send_status, search_status = self.check_latency(self.generate_unique_message())
             check_end_time = time.time()
             latency_check_count += 1
-            res = self.write_latency_check_result(send_status, search_status, check_start_time, check_end_time,
-                                            thread_name, str(latency_check_count))
-            test_results.append(res)
-        db_saver.save_test_results(self.testID, test_results)
+            if self.mariadb_status == 'enabled':
+                test_results.append(
+                    self.write_latency_check_result(
+                        send_status, search_status, check_start_time, check_end_time,
+                                            thread_name, str(latency_check_count)))
+            else:
+                self.write_latency_check_result(send_status, search_status, check_start_time, check_end_time,
+                                                thread_name, str(latency_check_count))
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.save_test_results(db, self.testID, test_results)
+            db.close()
         final_time = time.time()
         print("-----Test Results-----")
         print("{}: End Time: {}".format(thread_name, thread_name, datetime.datetime.now().strftime("%H:%M:%S.%f")))
-        end_time = datetime.datetime.now().replace(microsecond=0)
-        test_params = [['log_api_type', str(self.log_api_type)],
-                       ['start_time', str(strt_time)],
-                       ['end_time', str(end_time)],
-                       ['runtime', str(self.runtime)],
-                       ['log_size', str(self.log_size)]]
-        db_saver.save_test_params(self.testID, test_params)
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            test_params = [['log_api_type', str(self.log_api_type)],
+                           ['start_time', str(strt_time)],
+                           ['end_time', str(datetime.datetime.now().replace(microsecond=0))],
+                           ['runtime', str(self.runtime)],
+                           ['log_size', str(self.log_size)]]
+            db_saver.save_test_params(db, self.testID, test_params)
+            db.close()
         print("{}: {} log entries in {} seconds".format(thread_name, latency_check_count, final_time-start_time))
 
     def write_latency_check_result(self, send_status, search_status, start_time, end_time, name, count):
@@ -174,7 +194,8 @@ class LogLatency(threading.Thread):
         else:
             print("{} Time: {}, Send Injector log Failed after: {}"
                   .format(name, datetime.datetime.now().strftime("%H:%M:%S.%f"), latency)+" seconds!")
-        return ["latency", str(latency), datetime.datetime.now().replace(microsecond=0)]
+        if self.mariadb_status == 'enabled':
+            return ["latency", str(latency), datetime.datetime.now().replace(microsecond=0)]
 
     def create_result_file(self):
         """create file for result then write header line to this file """
@@ -201,7 +222,6 @@ class LogLatency(threading.Thread):
             thread.join()
 
         self.result_file.close()
-        db_saver.close()
 
 
 def create_program_argument_parser():
@@ -225,6 +245,7 @@ if __name__ == "__main__":
     if len(sys.argv) <= 1:
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         KEYSTONE_URL = BASIC_CONF['url']['keystone']
         LOG_API_URL = BASIC_CONF['url']['log_api_url']
         ELASTIC_URL = urlparse(BASIC_CONF['url']['elastic_url']).netloc
@@ -238,6 +259,7 @@ if __name__ == "__main__":
         LOG_SIZE = TEST_CONF[TEST_NAME]['log_size']
     else:
         program_argument = create_program_argument_parser()
+        MARIADB_STATUS = program_argument.mariadb_status
         KEYSTONE_URL = program_argument.keystone_url
         LOG_API_URL = program_argument.log_api_url
         ELASTIC_URL = urlparse(program_argument.elastic_url).netloc
@@ -251,6 +273,6 @@ if __name__ == "__main__":
         LOG_SIZE = program_argument.log_size
 
     log_latency = LogLatency(KEYSTONE_URL, LOG_API_URL, ELASTIC_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                             RUNTIME, THREADS_NUM, LOG_API_TYPE, NUM_Of_LOGS_IN_ONE_BULK, LOG_SIZE)
+                             RUNTIME, THREADS_NUM, LOG_API_TYPE, NUM_Of_LOGS_IN_ONE_BULK, LOG_SIZE, MARIADB_STATUS)
 
     log_latency.start()

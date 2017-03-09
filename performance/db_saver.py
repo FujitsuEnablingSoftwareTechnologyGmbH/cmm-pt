@@ -2,15 +2,7 @@ import MySQLdb
 import yaml
 
 
-BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
-MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
-MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
-MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
-MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
-db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-
-
-def save_test(testCaseID, testName):
+def save_test(db, testCaseID, testName):
     cursor = db.cursor()
     # save test entry
     sql = " INSERT INTO Test (testCaseID, testName) VALUES ({0}, '{1}');".format(testCaseID, testName)
@@ -22,7 +14,7 @@ def save_test(testCaseID, testName):
     return int(cursor.fetchone()[0])
 
 
-def save_test_params(testID, testParams):
+def save_test_params(db, testID, testParams):
     cursor = db.cursor()
     # save test input parameters
     for param in testParams:
@@ -36,7 +28,7 @@ def save_test_params(testID, testParams):
     db.commit()
 
 
-def save_test_results(testID, testResults):
+def save_test_results(db, testID, testResults):
     cursor = db.cursor()
     # save test input parameters
     for res in testResults:
@@ -48,7 +40,3 @@ def save_test_results(testID, testResults):
         except:
             db.rollback()
     db.commit()
-
-
-def close():
-    db.close()

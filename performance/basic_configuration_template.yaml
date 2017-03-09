@@ -20,6 +20,7 @@ influxdb:
     database: mon
 
 mariadb:
+    status: enabled # enabled/disabled
     hostname: host
     user: user
     password: pass

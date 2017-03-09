@@ -22,6 +22,7 @@ can be passed as program arguments.
 import argparse
 import datetime
 import httplib
+import MySQLdb
 import random
 import simplejson
 import string
@@ -39,11 +40,19 @@ TEST_NAME = 'log_send'
 BULK_URL_PATH = '/v3.0/logs'
 SINGLE_LOG_API_URL_PATH = '/v2.0/log/single'
 
+BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
+MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
+db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
 
 class LogSend(threading.Thread):
     def __init__(self, keystone_url, log_api_url, tenant_username, tenant_password, tenant_project, thread_num,
-                 runtime, log_every_n, log_api_type, bulk_size, frequency, log_size, log_level, log_dimension, delay):
+                 runtime, log_every_n, log_api_type, bulk_size, frequency,
+                 log_size, log_level, log_dimension, delay, mariadb_status):
         threading.Thread.__init__(self)
+        self.mariadb_status = mariadb_status
         self.keystone_url = keystone_url
         self.log_api_url = log_api_url
         self.tenant_username = tenant_username
@@ -63,9 +72,12 @@ class LogSend(threading.Thread):
                                                        self.keystone_url)
         self.result_file = self.create_result_file()
         self.token_handler.get_valid_token()
-        # The following parameter "1" will be changed into the testCaseID provided by the shell script
-        self.testID = db_saver.save_test(1, TEST_NAME)
-        self.test_params = list()
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            # The following parameter "1" will be changed into the testCaseID provided by the shell script
+            self.testID = db_saver.save_test(db, 1, TEST_NAME)
+            self.test_params = list()
+            db.close()
 
     def generate_log_message(self, size=50, count=0):
         """Return unique massage that contain current data, Count value and random massage
@@ -182,7 +194,10 @@ class LogSend(threading.Thread):
                        ['log_size', str(self.log_size)],
                        ['bulk_size', self.bulk_size],
                        ['frequency', str(self.frequency)]]
-        db_saver.save_test_params(self.testID, self.test_params)
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.save_test_params(db, self.testID, self.test_params)
+            db.close()
 
     def create_result_file(self):
         """create file for result and write header string to this file
@@ -214,7 +229,6 @@ class LogSend(threading.Thread):
 
         self.write_final_result_line()
         self.result_file.close()
-        db_saver.close()
 
 
 def create_program_argument_parser():
@@ -241,6 +255,7 @@ if __name__ == "__main__":
     if len(sys.argv) <= 1:
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         KEYSTONE_URL = BASIC_CONF['url']['keystone']
         LOG_API_URL = BASIC_CONF['url']['log_api_url']
         TENANT_USERNAME = BASIC_CONF['users']['tenant_name']
@@ -258,6 +273,7 @@ if __name__ == "__main__":
         DELAY = None
     else:
         program_argument = create_program_argument_parser()
+        MARIADB_STATUS = program_argument.mariadb_status
         KEYSTONE_URL = program_argument.keystone_url
         LOG_API_URL = program_argument.log_api_url
         TENANT_USERNAME = program_argument.tenant_name
@@ -277,7 +293,7 @@ if __name__ == "__main__":
 
     log_send = LogSend(KEYSTONE_URL, LOG_API_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT, THREADS_NUM,
                        RUNTIME, LOG_EVERY_N, LOG_API_TYPE, NUM_Of_LOGS_IN_ONE_BULK, FREQUENCY, LOG_SIZE,
-                       LOG_LEVEL, LOG_DIMENSION, DELAY)
+                       LOG_LEVEL, LOG_DIMENSION, DELAY, MARIADB_STATUS)
     log_send.start()
 
 
