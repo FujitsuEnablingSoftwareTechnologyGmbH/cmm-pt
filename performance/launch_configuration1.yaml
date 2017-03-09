@@ -124,7 +124,7 @@ TestSuite3:
                frequency: 70
                loglevel: INFO  
             outp_file_dir: xxx
-            outp_file_name: 'test'
+            outp_file_name: 'test.log'
             outp_count: 2 
         logagent_latency:
           - check_timeout: 240
