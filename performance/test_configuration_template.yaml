@@ -58,37 +58,22 @@ metric_send:
           value:
 
 
-#this part for perf_log_cont_send.py to send logs at intervals
-log_cont_send:
-    num_threads:
-    LOG_EVERY_N:  ### log output to console every x times
-    bulk_mode_enable: enable ### if this parameter is 'enable' program will send log in bulk mode
-    num_of_logs_in_one_bulk:  # number of logs send in single bul
-    log_size:  ###size of single log in byte
-    runtime:  ### runtime in seconds
-    ticker:  ### Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
-
-
 #this part for logagent_write.py to continuous write
 logagent_write:
     log_ever_n:   ### log output to console every x times
     runtime:    ### runtime in seconds
-    waittime:   ### :qif queue is empty, wait another 5 seconds
-    uuid: 'unique' ### 'unique' or any other string
-    latency_uuid_dir: tmp/ ### path to file where program save uuid
-    latency_uuid_file: uuid ### name of file where program save uuid
     inp_file_dir: input/
     inp_file_list: ###
-      - name: file.txt ### file name
-        frequency:  #### logs/second : 5: every 1/5 seconds, write one log to logfile
+      - name: file1.txt ### file name
+        frequency: 1  #### logs/second : 5: every 1/5 seconds, write one log to logfile
         loglevel: INFO
-      - name: file.txt ### when this file contain 'latency' word program will and to the message uuid
-        frequency:  #### logs/second : 0.2: every 1/0.2 seconds, write one log to logfile
+      - name: file2.txt ### when this file contain 'latency' word program will and to the message uuid
+        frequency: 2 #### logs/second : 0.2: every 1/0.2 seconds, write one log to logfile
         loglevel: ERROR   #log level fo example ERROR, INFO ...
     outp_file_dir: /var/log/st_test/
-    outp_file_name:
-        - test1.log
-        - test2.log
+    outp_file_name: 'test.log' # for example: test0.log and test1.log will be created. The extension is needed
+    outp_count: 2 # count of output_files
+   
 
 
 metric_throughput:
@@ -102,13 +87,18 @@ metric_throughput:
 
 metric_latency:
     runtime: #### runtime in seconds
-    check_frequency: #### how long to wait before checking again if metric is available.
-    send_frequency: #### how long to wait before sending metric again.
+    check_ticker: #### how long to wait before checking again if metric is available.
+    send_ticker: #### how long to wait before sending metric again.
     timeout: #### maximum time that program will check if metric is available.
 
 #this part for write_logs
 write_result:
     directory: 'perf_testResult/' ##Directory where results from all test will be stored
+    
+    
+write_logs:
+    inp_file_dir: 'C:\TEMP\test_logs\'
+    outp_file_name_ext: ".csv"        
 
 alarm_log:
     alarm_definition_name: # name pater for all alarm definitions

@@ -3,7 +3,7 @@ url:
     log_api_url: http://{log-api address}:5607
     metrics_api: http://{metric-api address}:8070/v2.0
     elastic_url: http://{elasticsearch address}:9200
-    influxdb: {influxdb address}:8086
+    influxdb: influxdb address:8086
 
 
 users:

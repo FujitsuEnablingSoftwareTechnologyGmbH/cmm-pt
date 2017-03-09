@@ -232,7 +232,9 @@ def create_program_argument_parser():
     parser.add_argument('-frequency', action="store", dest='frequency', type=int)
     parser.add_argument('-log_size', action="store", dest='log_size', type=int)
     parser.add_argument('-daley', action="store", dest='delay', type=int, required=False)
-    parser.add_argument('-log_level', action="store", dest='log_level', type=int, required=False)
+    parser.add_argument('-log_level', action="store", dest='log_level', type=str)
+    parser.add_argument('-log_dimension', action="store", dest='log_dimension', nargs='+')
+
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -270,7 +272,8 @@ if __name__ == "__main__":
         LOG_SIZE = program_argument.log_size
         DELAY = program_argument.delay
         LOG_LEVEL = program_argument.log_level
-        LOG_DIMENSION = []
+        LOG_DIMENSION = [{'key': dimension[0], 'value': dimension[1]} for dimension in
+                         [dimension.split(':') for dimension in program_argument.log_dimension]]
 
     log_send = LogSend(KEYSTONE_URL, LOG_API_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT, THREADS_NUM,
                        RUNTIME, LOG_EVERY_N, LOG_API_TYPE, NUM_Of_LOGS_IN_ONE_BULK, FREQUENCY, LOG_SIZE,

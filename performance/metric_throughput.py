@@ -76,6 +76,11 @@ class MetricThroughput(threading.Thread):
         return ["throughput", metric_per_sec,
                 datetime.datetime.now().replace(microsecond=0)]
 
+    def write_final_result_line_to_file(self, total_number_of_metric):
+        result_line = "Metric received: {}".format(total_number_of_metric)
+        print result_line
+        serialize_logging(self.results_file, result_line)
+
     def create_result_file(self):
         res_file = create_file("{}_{}_".format(TEST_NAME, self.metric_name))
         serialize_logging(res_file, "Time, difference, count, metric per sec")
@@ -126,6 +131,7 @@ class MetricThroughput(threading.Thread):
                     count_ticker_to_stop = 0
             if self.ticker_to_stop > query_time:
                 time.sleep(self.ticker_to_stop - query_time)
+        self.write_final_result_line_to_file(count)
         end_time = datetime.datetime.now().replace(microsecond=0)
         self.test_params = [['end_time', str(end_time)]]
         db_saver.save_test_params(self.testID, self.test_params)
@@ -135,14 +141,15 @@ class MetricThroughput(threading.Thread):
 
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-influx_url', action="store", dest='influx_url', type=str)
-    parser.add_argument('-influx_usr', action="store", dest='influx_usr', type=str)
-    parser.add_argument('-influx_password', action="store", dest='influx_password', type=str)
-    parser.add_argument('-influx_database', action="store", dest='influx_database', type=str)
-    parser.add_argument('-runtime', action="store", dest='runtime', type=int)
-    parser.add_argument('-ticker', action="store", dest='ticker', type=float)
-    parser.add_argument('-ticker_to_stop', action="store", dest='ticker_to_stop', type=int)
-    parser.add_argument('-metric_name', action="store", dest='metric_name', type=str)
+    parser.add_argument('-influx_url', action='store', dest='influx_url', type=str)
+    parser.add_argument('-influx_usr', action='store', dest='influx_usr', type=str)
+    parser.add_argument('-influx_password', action='store', dest='influx_password', type=str)
+    parser.add_argument('-influx_database', action='store', dest='influx_database', type=str)
+    parser.add_argument('-runtime', action='store', dest='runtime', type=int)
+    parser.add_argument('-ticker', action='store', dest='ticker', type=float)
+    parser.add_argument('-ticker_to_stop', action='store', dest='ticker_to_stop', type=int)
+    parser.add_argument('-metric_name', action='store', dest='metric_name', type=str)
+    parser.add_argument('-dimensions', action='store', dest='dimensions', nargs='+')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -169,6 +176,8 @@ if __name__ == "__main__":
         TICKER = program_argument.ticker
         TICKER_TO_STOP = program_argument.ticker_to_stop
         METRIC_NAME = program_argument.metric_name
+        METRIC_DIMENSIONS = [{'key': dimension[0], 'value': dimension[1]} for dimension in
+                             [dimension.split(':') for dimension in program_argument.dimensions]]
 
     metric_throughput = MetricThroughput(INFLUX_URL.split(':')[0], INFLUX_URL.split(':')[1], INFLUX_USER,
                                          INFLUX_PASSWORD, INFLUX_DATABASE, RUNTIME, TICKER, TICKER_TO_STOP,
