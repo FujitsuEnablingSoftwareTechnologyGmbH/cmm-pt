@@ -52,7 +52,8 @@ if __name__ == "__main__":
             print("    search_field          : " + str(i['search_field']))
             print("    search_string          : " + str(i['search_string']))
             log_throughput = LogThroughput(TENANT_PROJECT, ELASTIC_URL, i['runtime'], i['ticker'], i['search_string'],
-                                           i['search_field'], i['num_stop'], MARIADB_STATUS)
+                                           i['search_field'], i['num_stop'], MARIADB_STATUS, MARIADB_USERNAME,
+                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE)
             log_throughput.start()
 
         for i in TESTSUITE_CONF[SUITE]['Program']['log_send']:
@@ -69,7 +70,8 @@ if __name__ == "__main__":
             log_send = LogSend(KEYSTONE_URL, LOG_API_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                i['num_threads'], i['runtime'], i['log_every_n'], i['log_api_type'],
                                i['num_of_logs_in_one_bulk'], i['frequency'], i['log_size'], i['log_level'],
-                               i['dimension'], DELAY, MARIADB_STATUS)
+                               i['dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
+                               MARIADB_HOSTNAME, MARIADB_DATABASE)
             log_send.start()
 
         for i in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
@@ -83,7 +85,8 @@ if __name__ == "__main__":
 
             log_latency = LogLatency(KEYSTONE_URL, LOG_API_URL, ELASTIC_URL, TENANT_USERNAME, TENANT_PASSWORD,
                                      TENANT_PROJECT, i['runtime'], i['num_threads'], i['log_api_type'],
-                                     i['num_of_logs_in_one_bulk'], i['log_size'], MARIADB_STATUS)
+                                     i['num_of_logs_in_one_bulk'], i['log_size'], MARIADB_STATUS, MARIADB_USERNAME,
+                                     MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE)
             log_latency.start()
 
     if SUITE == 'TestSuite2a':
