@@ -52,7 +52,7 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 class LogLatency(threading.Thread):
     def __init__(self, keystone_url, log_api_url, elastic_url, tenant_username, tenant_password, tenant_project,
                  runtime, thread_num, log_api_type, bulk_size, log_size, mariadb_status, mariadb_username=None,
-                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None):
+                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.mariadb_database = mariadb_database
@@ -76,10 +76,10 @@ class LogLatency(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
+                self.testCaseID=testCaseID
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                # The following parameter "1" will be changed into the testCaseID provided by the launcher script
-                self.testID = db_saver.save_test(db, 1, TEST_NAME)
+                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
                 db.close()
             else:
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'

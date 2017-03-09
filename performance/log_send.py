@@ -51,7 +51,7 @@ class LogSend(threading.Thread):
     def __init__(self, keystone_url, log_api_url, tenant_username, tenant_password, tenant_project, thread_num,
                  runtime, log_every_n, log_api_type, bulk_size, frequency, log_size, log_level, log_dimension,
                  delay, mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
-                 mariadb_database=None):
+                 mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.mariadb_database = mariadb_database
@@ -81,10 +81,10 @@ class LogSend(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
+                self.testCaseID=testCaseID
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                # The following parameter "1" will be changed into the testCaseID provided by the shell script
-                self.testID = db_saver.save_test(db, 1, TEST_NAME)
+                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
                 self.test_params = list()
                 db.close()
             else:
