@@ -126,7 +126,6 @@ TestSuite3:
             outp_file_dir: xxx
             outp_file_name: 'test'
             outp_count: 2 
-            outp_ext: ".log"
         logagent_latency:
           - check_timeout: 240
             check_ticker: 10 

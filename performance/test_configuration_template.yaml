@@ -71,9 +71,9 @@ logagent_write:
         frequency: 2 #### logs/second : 0.2: every 1/0.2 seconds, write one log to logfile
         loglevel: ERROR   #log level fo example ERROR, INFO ...
     outp_file_dir: /var/log/st_test/
-    outp_file_name: 'test'
+    outp_file_name: 'test.log' # for example: test0.log and test1.log created
     outp_count: 2 # count of output_files
-    outp_ext: ".log"
+   
 
 
 metric_throughput:
