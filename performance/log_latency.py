@@ -55,6 +55,10 @@ class LogLatency(threading.Thread):
                  mariadb_password=None, mariadb_hostname=None, mariadb_database=None):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
+        self.mariadb_database = mariadb_database
+        self.mariadb_username = mariadb_username
+        self.mariadb_password = mariadb_password
+        self.mariadb_hostname = mariadb_hostname
         self.keystone_url = keystone_url
         self.log_api_url = log_api_url
         self.elastic_url = elastic_url
@@ -71,7 +75,7 @@ class LogLatency(threading.Thread):
         if self.mariadb_status == 'enabled':
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
-                    (self.mariadb_password is not None)):
+                    (self.mariadb_database is not None)):
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 # The following parameter "1" will be changed into the testCaseID provided by the launcher script
@@ -238,7 +242,8 @@ def create_program_argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
     parser.add_argument('-mariadb_username', action='store', dest='mariadb_username')
-    parser.add_argument('-mariadb_password', action='store', dest='mariadb_password')
+    parser.add_argument('-mariadb_password', action='store', dest='mariadb_password')\
+        if BASIC_CONF['mariadb']['password'] is not None else ''
     parser.add_argument('-mariadb_hostname', action='store', dest='mariadb_hostname')
     parser.add_argument('-mariadb_database', action='store', dest='mariadb_database')
     parser.add_argument('-keystone_url', action="store", dest='keystone_url')
@@ -261,8 +266,9 @@ if __name__ == "__main__":
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         MARIADB_STATUS = BASIC_CONF['mariadb']['status']
-        MARIADB_USERNAME = BASIC_CONF['mariadb']['username']
-        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']
+        MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
+            if BASIC_CONF['mariadb']['password'] is not None else ''
         MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
         MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
         KEYSTONE_URL = BASIC_CONF['url']['keystone']

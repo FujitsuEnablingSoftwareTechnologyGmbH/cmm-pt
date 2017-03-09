@@ -54,8 +54,8 @@ class MetricSend(threading.Thread):
         self.mariadb_status = mariadb_status
         self.mariadb_database = mariadb_database
         self.mariadb_username = mariadb_username
-        self.mariadb_password=mariadb_password
-        self.mariadb_hostname=mariadb_hostname
+        self.mariadb_password = mariadb_password
+        self.mariadb_hostname = mariadb_hostname
         self.headers = {"Content-type": "application/json"}
         self.keystone_url = keystone_url
         self.tenant_name = tenant_name
@@ -76,7 +76,7 @@ class MetricSend(threading.Thread):
         if self.mariadb_status == 'enabled':
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
-                    (self.mariadb_password is not None)):
+                    (self.mariadb_database is not None)):
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 # The following parameter "1" will be changed into the testCaseID provided by the shell script
@@ -236,8 +236,9 @@ if __name__ == "__main__":
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
         MARIADB_STATUS = BASIC_CONF['mariadb']['status']
-        MARIADB_USERNAME = BASIC_CONF['mariadb']['username']
-        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']
+        MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
+            if BASIC_CONF['mariadb']['password'] is not None else ''
         MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
         MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
         METRIC_API_URL = BASIC_CONF['url']['metrics_api'] + "/metrics"
@@ -258,7 +259,8 @@ if __name__ == "__main__":
         program_argument = create_program_argument_parser()
         MARIADB_STATUS = program_argument.mariadb_status
         MARIADB_USERNAME = program_argument.mariadb_username
-        MARIADB_PASSWORD = program_argument.mariadb_password
+        MARIADB_PASSWORD = program_argument.mariadb_password \
+            if program_argument.mariadb_password is not None else ''
         MARIADB_HOSTNAME = program_argument.mariadb_hostname
         MARIADB_DATABASE = program_argument.mariadb_database
         KEYSTONE_URL = program_argument.keystone_url
