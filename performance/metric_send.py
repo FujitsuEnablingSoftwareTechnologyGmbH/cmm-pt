@@ -228,6 +228,7 @@ def create_program_argument_parser():
     parser.add_argument('-metric_name', action="store", dest='metric_name', type=str)
     parser.add_argument('-num_metric_per_request', action="store", dest='num_metric_per_request', type=int)
     parser.add_argument('-frequency', action="store", dest='frequency', type=int)
+    parser.add_argument('-metric_dimension', action="store", dest='metric_dimension', nargs='+')
     parser.add_argument('-daley', action="store", dest='delay', type=int, required=False)
     return parser.parse_args()
 
@@ -246,7 +247,6 @@ if __name__ == "__main__":
         TENANT_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
                              "password": BASIC_CONF['users']['tenant_password'],
                              "project": BASIC_CONF['users']['tenant_project']}
-
         NUM_THREADS = TEST_CONF[TEST_NAME]['num_threads']
         NUM_METRIC_PER_REQUEST = TEST_CONF[TEST_NAME]['num_metrics_per_request']
         LOG_EVERY_N = TEST_CONF[TEST_NAME]['LOG_EVERY_N']
@@ -272,9 +272,10 @@ if __name__ == "__main__":
         NUM_METRIC_PER_REQUEST = program_argument.num_metric_per_request
         LOG_EVERY_N = program_argument.log_every_n
         RUNTIME = program_argument.runtime
-        FREQUENCY = program_argument.frequency
+        FREQUENCY = program_argument.frequencygit
         METRIC_NAME = program_argument.metric_name
-        METRIC_DIMENSION = [{'key': 'test', 'value': 'systemTest'}]
+        METRIC_DIMENSION = [{'key': dimension[0], 'value': dimension[1]} for dimension in
+                            [dimension.split(':') for dimension in program_argument.metric_dimension]]
         DELAY = program_argument.delay
 
     TOKEN_HANDLER = TokenHandler.TokenHandler(TENANT_CREDENTIAL['name'],
