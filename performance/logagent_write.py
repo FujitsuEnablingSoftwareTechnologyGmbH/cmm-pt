@@ -23,17 +23,24 @@ All public variables are described in basic_configuration.yaml and test_configur
 import argparse
 import datetime
 import logging
+import MySQLdb
 import sys
 import threading
 import time
 import yaml
 from Queue import Queue, Empty
 from write_logs import create_file, write_line_to_file
+import db_saver
 
 TEST_NAME = 'logagent_write'
 
 #Queue empty: Timeout parameter
 QUEUE_TIME_OUT = 5
+BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
+MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 
 
 class LogWriter(threading.Thread):
@@ -146,8 +153,15 @@ class LogGenerator(threading.Thread):
 
 
 class LogagentWrite(threading.Thread):
-    def __init__(self, runtime, log_every_n, inp_file_dir, inp_files, outp_file_dir, outp_file_name, outp_count):
+    def __init__(self, runtime, log_every_n, inp_file_dir, inp_files, outp_file_dir, outp_file_name, outp_count,
+                 mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
+                 mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
+        self.mariadb_status = mariadb_status
+        self.mariadb_database = mariadb_database
+        self.mariadb_username = mariadb_username
+        self.mariadb_password = mariadb_password
+        self.mariadb_hostname = mariadb_hostname
         self.runtime = runtime
         self.log_every_n = log_every_n
         self.inp_file_dir = inp_file_dir
@@ -156,6 +170,26 @@ class LogagentWrite(threading.Thread):
         self.outp_file = outp_file_name
         self.outp_count = outp_count
         self.result_file = create_file(TEST_NAME + "_final")
+        if self.mariadb_status == 'enabled':
+            if ((self.mariadb_hostname is not None) and
+                (self.mariadb_username is not None) and
+                    (self.mariadb_database is not None)):
+                self.testCaseID = testCaseID
+                db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                     self.mariadb_password, self.mariadb_database)
+                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
+                self.test_params = list()
+                self.test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
+                                    ['runtime', str(self.runtime)],
+                                    ['output_count', str(self.outp_count)]]
+                for counter, inp in enumerate(inp_files):
+                    self.test_params.append(['log_level'+str(counter), str(inp['loglevel'])])
+                    self.test_params.append(['frequency'+str(counter), str(inp['frequency'])])
+                db_saver.save_test_params(db, self.testID, self.test_params)
+                db.close()
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
 
     def run(self):
         write_thread_list = []
@@ -173,15 +207,24 @@ class LogagentWrite(threading.Thread):
             write_thread = LogWriter(self.outp_file_dir + out_file, q, self.log_every_n, self.runtime)
             write_thread.start()
             write_thread_list.append(write_thread)
-
+        tmp_list = list()
         for thread_index, thread in enumerate(write_thread_list):
             thread.join()
             self.result_file.write("Thread = {}, file = {}, log_wrote = {}, frequency = {}\n".
                                    format(str(thread_index), thread.outfile, thread.total_log_wrote,
                                           thread.total_log_wrote_freq))
             total_log_count += thread.total_log_wrote
+            tmp_list.append(['log_wrote'+str(thread_index), str(thread.total_log_wrote)])
+            tmp_list.append(['frequency_wrote'+str(thread_index), str(thread.total_log_wrote_freq)])
         self.result_file.write("Total logs wrote ={}".format(total_log_count))
         self.result_file.close()
+        tmp_list.append(['total_logs', str(total_log_count)])
+        tmp_list.append(['end_time', datetime.datetime.now().replace(microsecond=0)])
+        if self.mariadb_status == 'enabled':
+            db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                 self.mariadb_password, self.mariadb_database)
+            db_saver.save_test_params(db, self.testID, tmp_list)
+            db.close()
 
     def get_message_from_input_file(self, file_path):
         """Get log message from the specified file, this message will be write to the log file """
@@ -191,6 +234,12 @@ class LogagentWrite(threading.Thread):
 
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
+    parser.add_argument('-mariadb_username', action='store', dest='mariadb_username')
+    parser.add_argument('-mariadb_password', action='store', dest='mariadb_password')\
+        if BASIC_CONF['mariadb']['password'] is not None else ''
+    parser.add_argument('-mariadb_hostname', action='store', dest='mariadb_hostname')
+    parser.add_argument('-mariadb_database', action='store', dest='mariadb_database')
     parser.add_argument('-runtime', action='store', dest='runtime', type=int)
     parser.add_argument('-log_every_n', action='store', dest='log_every_n', type=int)
     parser.add_argument('-inp_file_dir', action='store', dest='inp_file_dir', type=str)
@@ -206,6 +255,12 @@ if __name__ == "__main__":
 
     if len(sys.argv) <= 1:
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        MARIADB_STATUS = BASIC_CONF['mariadb']['status']
+        MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
+            if BASIC_CONF['mariadb']['password'] is not None else ''
+        MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+        MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
         RUNTIME = TEST_CONF[TEST_NAME]['runtime']
         LOG_EVERY_N = TEST_CONF[TEST_NAME]['log_ever_n']
         INP_FILE_DIR = TEST_CONF[TEST_NAME]['inp_file_dir']
@@ -216,6 +271,11 @@ if __name__ == "__main__":
         
     else:
         program_argument = create_program_argument_parser()
+        MARIADB_STATUS = program_argument.mariadb_status
+        MARIADB_USERNAME = program_argument.mariadb_username
+        MARIADB_PASSWORD = program_argument.mariadb_password
+        MARIADB_HOSTNAME = program_argument.mariadb_hostname
+        MARIADB_DATABASE = program_argument.mariadb_database
         RUNTIME = program_argument.runtime
         LOG_EVERY_N = program_argument.log_every_n
         INP_FILE_DIR = program_argument.inp_file_dir
@@ -226,7 +286,9 @@ if __name__ == "__main__":
         OUTP_COUNT = program_argument.outp_count
        
 
-    logagnet_write = LogagentWrite(RUNTIME, LOG_EVERY_N, INP_FILE_DIR, INP_FILES, OUTP_FILE_DIR, OUTP_FILES_NAME, OUTP_COUNT)
+    logagnet_write = LogagentWrite(RUNTIME, LOG_EVERY_N, INP_FILE_DIR, INP_FILES, OUTP_FILE_DIR,
+                                   OUTP_FILES_NAME, OUTP_COUNT, MARIADB_STATUS, MARIADB_USERNAME,
+                                   MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE)
     logagnet_write.start()
 
 
