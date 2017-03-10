@@ -1,4 +1,3 @@
-/.gitignore
 /basic_configuration.yaml
 /test_configuration.yaml
 /*.pyc

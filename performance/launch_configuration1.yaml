@@ -6,7 +6,7 @@ TestSuite1:
            log_api_type: bulk
            num_of_logs_in_one_bulk: 125
            log_size: 200
-           runtime:  3600
+           runtime:  30
            frequency: 8
            log_level: INFO
            dimension:
@@ -15,7 +15,7 @@ TestSuite1:
              
         log_throughput:
           - LOG_EVERY_N: 1000
-            runtime: 3600
+            runtime: 30
             ticker: 10 
             num_stop: 10
             search_field: application_type
@@ -27,7 +27,7 @@ TestSuite1:
             log_api_type: bulk
             num_of_logs_in_one_bulk: 125
             log_size: 200
-            runtime:  3600
+            runtime:  30
             ticker:  5 
 TestSuite2a: 
      Program:

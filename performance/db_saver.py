@@ -1,5 +1,20 @@
-import MySQLdb
-import yaml
+def save_testCase(db, testSuite):
+    cursor = db.cursor()
+    # save test entry
+    sql = " INSERT INTO TestCase (testSuite, startTime) VALUES ('{0}', NOW());".format(testSuite)
+    cursor.execute(sql)
+    db.commit()
+    return int(cursor.lastrowid)
+
+
+def close_testCase(db, testCaseID):
+    cursor = db.cursor()
+    # save test entry
+    sql = " Update TestCase " \
+          "set endTime=NOW() " \
+          "where testCaseID={0};".format(testCaseID)
+    cursor.execute(sql)
+    db.commit()
 
 
 def save_test(db, testCaseID, testName):
@@ -8,10 +23,7 @@ def save_test(db, testCaseID, testName):
     sql = " INSERT INTO Test (testCaseID, testName) VALUES ({0}, '{1}');".format(testCaseID, testName)
     cursor.execute(sql)
     db.commit()
-    # return the test ID
-    sql = " select max(testID) from Test where testName like '{0}'".format(testName)
-    cursor.execute(sql)
-    return int(cursor.fetchone()[0])
+    return int(cursor.lastrowid)
 
 
 def save_test_params(db, testID, testParams):

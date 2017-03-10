@@ -6,6 +6,7 @@ from log_send import LogSend
 from log_throughput import LogThroughput
 from log_latency import LogLatency
 from metric_throughput import MetricThroughput
+import db_saver
 
 
 def create_program_argument_parser():
@@ -42,6 +43,15 @@ TESTSUITE_CONF = yaml.load(file('./launch_configuration1.yaml'), Loader=yaml.Loa
 if __name__ == "__main__":
 
     if SUITE == 'TestSuite1':
+        if MARIADB_STATUS == 'enabled':
+            if ((MARIADB_HOSTNAME is not None) and
+                (MARIADB_USERNAME is not None) and
+                    (MARIADB_DATABASE is not None)):
+                testCaseID = db_saver.save_testCase(db, SUITE)
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
+
         DELAY = 10
         for i in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
             print("LogThroughput:, parameter:")
@@ -52,7 +62,8 @@ if __name__ == "__main__":
             print("    search_field          : " + str(i['search_field']))
             print("    search_string          : " + str(i['search_string']))
             log_throughput = LogThroughput(TENANT_PROJECT, ELASTIC_URL, i['runtime'], i['ticker'], i['search_string'],
-                                           i['search_field'], i['num_stop'], MARIADB_STATUS)
+                                           i['search_field'], i['num_stop'], MARIADB_STATUS, MARIADB_USERNAME,
+                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, testCaseID)
             log_throughput.start()
 
         for i in TESTSUITE_CONF[SUITE]['Program']['log_send']:
@@ -69,7 +80,8 @@ if __name__ == "__main__":
             log_send = LogSend(KEYSTONE_URL, LOG_API_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                i['num_threads'], i['runtime'], i['log_every_n'], i['log_api_type'],
                                i['num_of_logs_in_one_bulk'], i['frequency'], i['log_size'], i['log_level'],
-                               i['dimension'], DELAY, MARIADB_STATUS)
+                               i['dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
+                               MARIADB_HOSTNAME, MARIADB_DATABASE, testCaseID)
             log_send.start()
 
         for i in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
@@ -83,8 +95,14 @@ if __name__ == "__main__":
 
             log_latency = LogLatency(KEYSTONE_URL, LOG_API_URL, ELASTIC_URL, TENANT_USERNAME, TENANT_PASSWORD,
                                      TENANT_PROJECT, i['runtime'], i['num_threads'], i['log_api_type'],
-                                     i['num_of_logs_in_one_bulk'], i['log_size'], MARIADB_STATUS)
+                                     i['num_of_logs_in_one_bulk'], i['log_size'], MARIADB_STATUS, MARIADB_USERNAME,
+                                     MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, testCaseID)
             log_latency.start()
+        log_throughput.join()
+        log_send.join()
+        log_latency.join()
+        if MARIADB_STATUS == 'enabled':
+            db_saver.close_testCase(db, testCaseID)
 
     if SUITE == 'TestSuite2a':
         # todo TestSuite2a

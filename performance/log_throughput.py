@@ -44,7 +44,7 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 class LogThroughput(threading.Thread):
     def __init__(self, tenant_project, elastic_url, runtime, ticker,
                  search_string_list, search_field, num_to_stop, mariadb_status, mariadb_username=None,
-                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None):
+                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.mariadb_database = mariadb_database
@@ -63,10 +63,10 @@ class LogThroughput(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
+                self.testCaseID=testCaseID
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                # The following parameter "1" will be changed into the testCaseID provided by the shell script
-                self.testID = db_saver.save_test(db, 1, TEST_NAME)
+                self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
                 self.test_params = list()
                 db.close()
             else:

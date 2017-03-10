@@ -68,13 +68,12 @@ def serialize_logging(lg_file, log_entry):
         if not os.path.exists(LOG_DIR + lock_filename):
             try:
                 if os.name != 'nt':  # non-windows needs a create-exclusive operation
-                    fd = os.open(lock_filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+                    fd = os.open(LOG_DIR + lock_filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
                     os.close(fd)
                 # non-windows os.rename will overwrite lock_filename silently.
                 # We leave this call in here just so the tmp file is deleted but
                 # it could be refactored so the tmp file is never even generated for a non-windows OS
-                os.rename(tmp_filename, lock_filename)
-                
+                os.rename(tmp_filename, LOG_DIR + lock_filename)
                 # os.rename(tmp_filename,lock_filename)
                 acquired = True
             except (OSError, ValueError, IOError), e:
@@ -83,8 +82,8 @@ def serialize_logging(lg_file, log_entry):
             try:
                 write_line_to_file(lg_file, log_entry)
             finally:
-                os.remove(lock_filename)
+                os.remove(LOG_DIR + lock_filename)
             break
         os.remove(tmp_filename)
         time.sleep(wait_time)
-    assert acquired, 'maximum tries reached, failed to acquire lock file'  
+    assert acquired, 'maximum tries reached, failed to acquire lock file'
