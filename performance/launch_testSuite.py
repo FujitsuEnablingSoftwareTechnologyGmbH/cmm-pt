@@ -3,6 +3,8 @@ import MySQLdb
 import yaml
 from urlparse import urlparse
 import db_saver
+from logagent_write import LogagentWrite
+from logagent_latency import LogagentLatency
 from log_latency import LogLatency
 from log_send import LogSend
 from log_throughput import LogThroughput
@@ -165,7 +167,6 @@ if __name__ == "__main__":
             for program in program_list:
                 program.join()
 
-
     if SUITE == 'TestSuite2b':
         if MARIADB_STATUS == 'enabled':
             if ((MARIADB_HOSTNAME is not None) and
@@ -282,7 +283,81 @@ if __name__ == "__main__":
 
     if SUITE == 'TestSuite3':
         # todo TestSuite3
-        print('still Todo')
+        if MARIADB_STATUS == 'enabled':
+            if ((MARIADB_HOSTNAME is not None) and
+                    (MARIADB_USERNAME is not None) and
+                    (MARIADB_DATABASE is not None)):
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                TEST_CASE_ID = db_saver.save_testCase(db, SUITE)
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
+        program_list = []
+        for i in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
+            print("LogThroughput:, parameter:")
+            print("    LOG_EVERY_N          : " + str(i['LOG_EVERY_N']))
+            print("    runtime          : " + str(i['runtime']))
+            print("    ticker          : " + str(i['ticker']))
+            print("    num_stop          : " + str(i['num_stop']))
+            print("    search_field          : " + str(i['search_field']))
+            print("    search_string          : " + str(i['search_string']))
+            log_throughput = LogThroughput(TENANT_PROJECT, ELASTIC_URL, i['runtime'], i['ticker'], i['search_string'],
+                                           i['search_field'], i['num_stop'], MARIADB_STATUS, MARIADB_USERNAME,
+                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            log_throughput.start()
+            program_list.append(log_throughput)
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+            print("LogSend:, parameter:")
+            print("    num_threads          : " + str(i['num_threads']))
+            print("    log_every_n           : " + str(i['log_every_n']))
+            print("    log_api_type   : " + str(i['log_api_type']))
+            print("    num_of_logs_in_one_bulk      : " + str(i['num_of_logs_in_one_bulk']))
+            print("    log_size: " + str(i['log_size']))
+            print("    runtime: " + str(i['runtime']))
+            print("    frequency: " + str(i['frequency']))
+            print("    log_level: " + str(i['log_level']))
+            print("    dimension: " + str(i['dimension']))
+            log_send = LogSend(KEYSTONE_URL, LOG_API_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                               i['num_threads'], i['runtime'], i['log_every_n'], i['log_api_type'],
+                               i['num_of_logs_in_one_bulk'], i['frequency'], i['log_size'], i['log_level'],
+                               i['dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
+                               MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            log_send.start()
+            program_list.append(log_send)
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['logagent_write']:
+            print("LogSend:, parameter:")
+            print("    log_ever_n          : " + str(i['log_ever_n']))
+            print("    runtime           : " + str(i['runtime']))
+            print("    inp_file_dir   : " + str(i['inp_file_dir']))
+            print("    inp_file_list      : " + str(i['inp_file_list']))
+            print("    outp_file_dir: " + str(i['outp_file_dir']))
+            print("    outp_file_name: " + str(i['outp_file_name']))
+            print("    outp_count: " + str(i['outp_count']))
+            logagent_write = LogagentWrite(i['runtime'], i['log_ever_n'], i['inp_file_dir'], i['inp_file_list'],
+                                           i['outp_file_dir'], i['outp_file_name'], i['outp_count'])
+            logagent_write.start()
+            program_list.append(logagent_write)
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['logagent_latency']:
+            print("LogSend:, parameter:")
+            print("    check_timeout          : " + str(i['check_timeout']))
+            print("    check_ticker           : " + str(i['check_ticker']))
+            print("    search_ticker   : " + str(i['search_ticker']))
+            print("    runtime      : " + str(i['runtime']))
+            print("    log_files: " + str(i['log_files']))
+            logagent_latency = LogagentLatency(ELASTIC_URL, i['check_timeout'], i['check_ticker'], i['search_ticker'],
+                                               i['runtime'], i['log_files'])
+            logagent_latency.start()
+            program_list.append(logagent_latency)
+
+        for program in program_list:
+            program.join()
+        if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.close_testCase(db, TEST_CASE_ID)
+            db.close()
 
     if SUITE == 'TestSuite4a':
         if MARIADB_STATUS == 'enabled':
