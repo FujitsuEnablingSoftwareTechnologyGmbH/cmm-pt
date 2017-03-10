@@ -36,7 +36,7 @@ MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
 MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
 MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 MARIADB_STATUS = BASIC_CONF['mariadb']['status']
-db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+TEST_CASE_ID = 1
 
 TEST_NAME = 'log_metric_test_launch'
 program_argument = create_program_argument_parser()
@@ -52,7 +52,8 @@ if __name__ == "__main__":
             if ((MARIADB_HOSTNAME is not None) and
                 (MARIADB_USERNAME is not None) and
                     (MARIADB_DATABASE is not None)):
-                testCaseID = db_saver.save_testCase(db, SUITE)
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                TEST_CASE_ID = db_saver.save_testCase(db, SUITE)
             else:
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'
                 exit()
@@ -67,7 +68,7 @@ if __name__ == "__main__":
             print("    search_string          : " + str(i['search_string']))
             log_throughput = LogThroughput(TENANT_PROJECT, ELASTIC_URL, i['runtime'], i['ticker'], i['search_string'],
                                            i['search_field'], i['num_stop'], MARIADB_STATUS, MARIADB_USERNAME,
-                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, testCaseID)
+                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             log_throughput.start()
             program_list.append(log_throughput)
 
@@ -86,7 +87,7 @@ if __name__ == "__main__":
                                i['num_threads'], i['runtime'], i['log_every_n'], i['log_api_type'],
                                i['num_of_logs_in_one_bulk'], i['frequency'], i['log_size'], i['log_level'],
                                i['dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
-                               MARIADB_HOSTNAME, MARIADB_DATABASE, testCaseID)
+                               MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             log_send.start()
             program_list.append(log_send)
 
@@ -102,14 +103,16 @@ if __name__ == "__main__":
             log_latency = LogLatency(KEYSTONE_URL, LOG_API_URL, ELASTIC_URL, TENANT_USERNAME, TENANT_PASSWORD,
                                      TENANT_PROJECT, i['runtime'], i['num_threads'], i['log_api_type'],
                                      i['num_of_logs_in_one_bulk'], i['log_size'], MARIADB_STATUS, MARIADB_USERNAME,
-                                     MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, testCaseID)
+                                     MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             log_latency.start()
             program_list.append(log_latency)
 
         for program in program_list:
             program.join()
-        if MARIADB_STATUS == 'enabled':
-            db_saver.close_testCase(db, testCaseID)
+        if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.close_testCase(db, TEST_CASE_ID)
+            db.close()
 
     if SUITE == 'TestSuite2a':
 
@@ -171,6 +174,17 @@ if __name__ == "__main__":
         print('still Todo')
 
     if SUITE == 'TestSuite4a':
+        if MARIADB_STATUS == 'enabled':
+            if ((MARIADB_HOSTNAME is not None) and
+                (MARIADB_USERNAME is not None) and
+                    (MARIADB_DATABASE is not None)):
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                TEST_CASE_ID = db_saver.save_testCase(db, SUITE)
+                print TEST_CASE_ID
+                db.close()
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
         METRIC_THROUGHPUT_P = TESTSUITE_CONF[SUITE]['Program']['metric_throughput']
 
         for i in METRIC_THROUGHPUT_P:
@@ -187,7 +201,12 @@ if __name__ == "__main__":
                                                  i['ticker_to_stop'],
                                                  i['metric_name'],
                                                  i['metric_dimensions'],
-                                                 MARIADB_STATUS)
+                                                 MARIADB_STATUS,
+                                                 MARIADB_USERNAME,
+                                                 MARIADB_PASSWORD,
+                                                 MARIADB_HOSTNAME,
+                                                 MARIADB_DATABASE,
+                                                 TEST_CASE_ID)
             metric_throughput.start()
 
         # scw: fixed code
@@ -215,9 +234,20 @@ if __name__ == "__main__":
                                i['log_level'],
                                i['dimension'],
                                DELAY,
-                               MARIADB_STATUS)
+                               MARIADB_STATUS,
+                               MARIADB_USERNAME,
+                               MARIADB_PASSWORD,
+                               MARIADB_HOSTNAME,
+                               MARIADB_DATABASE,
+                               TEST_CASE_ID)
 
             log_send.start()
+        metric_throughput.join()
+        log_send.join()
+        if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.close_testCase(db, TEST_CASE_ID)
+            db.close()
 
     if SUITE == 'TestSuite4':
         # todo TestSuite4
