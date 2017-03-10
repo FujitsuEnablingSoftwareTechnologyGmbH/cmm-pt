@@ -45,7 +45,7 @@ MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
 MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
 MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
 MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
-db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+
 
 class LogSend(threading.Thread):
     def __init__(self, keystone_url, log_api_url, tenant_username, tenant_password, tenant_project, thread_num,
@@ -54,10 +54,6 @@ class LogSend(threading.Thread):
                  mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
-        self.mariadb_database = mariadb_database
-        self.mariadb_username = mariadb_username
-        self.mariadb_password = mariadb_password
-        self.mariadb_hostname = mariadb_hostname
         self.keystone_url = keystone_url
         self.log_api_url = log_api_url
         self.tenant_username = tenant_username
@@ -78,10 +74,14 @@ class LogSend(threading.Thread):
         self.result_file = self.create_result_file()
         self.token_handler.get_valid_token()
         if self.mariadb_status == 'enabled':
+            self.mariadb_database = mariadb_database
+            self.mariadb_username = mariadb_username
+            self.mariadb_password = mariadb_password
+            self.mariadb_hostname = mariadb_hostname
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID=testCaseID
+                self.testCaseID = testCaseID
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
@@ -197,16 +197,16 @@ class LogSend(threading.Thread):
                            format(thread_name, time.strftime('%H:%M:%S', time.localtime(start_time)),
                                   time.strftime('%H:%M:%S', time.localtime(end_time)), total_number_of_sent_logs,
                                   "{0:.2f}".format(test_duration), "{0:.2f}".format(log_send_per_sec)))
-        self.test_params = [['total_number_of_sent_logs', str(total_number_of_sent_logs)],
-                       ['start_time', str(datetime.datetime.fromtimestamp(start_time).replace(microsecond=0))],
-                       ['end_time', str(datetime.datetime.fromtimestamp(end_time).replace(microsecond=0))],
-                       ['runtime', str(self.runtime)],
-                       ['avreage_per_second', str(log_send_per_sec)],
-                       ['log_level', str(self.log_level)],
-                       ['log_size', str(self.log_size)],
-                       ['bulk_size', self.bulk_size],
-                       ['frequency', str(self.frequency)]]
         if self.mariadb_status == 'enabled':
+            self.test_params = [['total_number_of_sent_logs', str(total_number_of_sent_logs)],
+                                ['start_time', str(datetime.datetime.fromtimestamp(start_time).replace(microsecond=0))],
+                                ['end_time', str(datetime.datetime.fromtimestamp(end_time).replace(microsecond=0))],
+                                ['runtime', str(self.runtime)],
+                                ['avreage_per_second', str(log_send_per_sec)],
+                                ['log_level', str(self.log_level)],
+                                ['log_size', str(self.log_size)],
+                                ['bulk_size', self.bulk_size],
+                                ['frequency', str(self.frequency)]]
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
             db_saver.save_test_params(db, self.testID, self.test_params)

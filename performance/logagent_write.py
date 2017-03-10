@@ -158,10 +158,6 @@ class LogagentWrite(threading.Thread):
                  mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
-        self.mariadb_database = mariadb_database
-        self.mariadb_username = mariadb_username
-        self.mariadb_password = mariadb_password
-        self.mariadb_hostname = mariadb_hostname
         self.runtime = runtime
         self.log_every_n = log_every_n
         self.inp_file_dir = inp_file_dir
@@ -171,6 +167,10 @@ class LogagentWrite(threading.Thread):
         self.outp_count = outp_count
         self.result_file = create_file(TEST_NAME + "_final")
         if self.mariadb_status == 'enabled':
+            self.mariadb_database = mariadb_database
+            self.mariadb_username = mariadb_username
+            self.mariadb_password = mariadb_password
+            self.mariadb_hostname = mariadb_hostname
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):

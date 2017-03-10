@@ -47,10 +47,6 @@ class LogThroughput(threading.Thread):
                  mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
-        self.mariadb_database = mariadb_database
-        self.mariadb_username = mariadb_username
-        self.mariadb_password = mariadb_password
-        self.mariadb_hostname = mariadb_hostname
         self.tenant_project = tenant_project
         self.elastic_url = elastic_url
         self.runtime = runtime
@@ -60,10 +56,14 @@ class LogThroughput(threading.Thread):
         self.num_to_stop = num_to_stop
         self.result_file = self.create_result_file()
         if self.mariadb_status == 'enabled':
+            self.mariadb_database = mariadb_database
+            self.mariadb_username = mariadb_username
+            self.mariadb_password = mariadb_password
+            self.mariadb_hostname = mariadb_hostname
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID=testCaseID
+                self.testCaseID = testCaseID
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
@@ -110,7 +110,9 @@ class LogThroughput(threading.Thread):
             log_check_count += 1
             log_check_time = time.time()
             if self.mariadb_status == 'enabled':
-                testresults.append(self.save_result_log_to_file(status, log_check_time, previous_log_check_time, different_log_entries_list))
+                testresults.append(
+                    self.save_result_log_to_file(
+                        status, log_check_time, previous_log_check_time, different_log_entries_list))
             else:
                 self.save_result_log_to_file(status, log_check_time, previous_log_check_time, different_log_entries_list)
             previous_log_check_time = log_check_time
@@ -142,9 +144,9 @@ class LogThroughput(threading.Thread):
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
             self.test_params = [['total_logs', str(number_of_log_in_last_request_list[index] - initial_number_of_log_list[index])],
-                           ['start_time', str(start_time)],
-                           ['end_time', str(end_time)],
-                           ['runtime', str(self.runtime)]]
+                                ['start_time', str(start_time)],
+                                ['end_time', str(end_time)],
+                                ['runtime', str(self.runtime)]]
             db_saver.save_test_params(db, self.testID, self.test_params)
             db.close()
 

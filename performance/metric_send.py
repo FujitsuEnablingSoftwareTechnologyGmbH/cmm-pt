@@ -52,10 +52,6 @@ class MetricSend(threading.Thread):
                  mariadb_database=None):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
-        self.mariadb_database = mariadb_database
-        self.mariadb_username = mariadb_username
-        self.mariadb_password = mariadb_password
-        self.mariadb_hostname = mariadb_hostname
         self.headers = {"Content-type": "application/json"}
         self.keystone_url = keystone_url
         self.tenant_name = tenant_name
@@ -74,6 +70,10 @@ class MetricSend(threading.Thread):
         self.TOKEN_HANDLER = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
                                                        self.keystone_url)
         if self.mariadb_status == 'enabled':
+            self.mariadb_database = mariadb_database
+            self.mariadb_username = mariadb_username
+            self.mariadb_password = mariadb_password
+            self.mariadb_hostname = mariadb_hostname
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):

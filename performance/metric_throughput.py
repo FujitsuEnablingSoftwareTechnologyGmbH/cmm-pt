@@ -45,6 +45,7 @@ class MetricThroughput(threading.Thread):
                  ticker_to_stop, metric_name, metric_dimension, mariadb_status, mariadb_username=None,
                  mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
+        self.mariadb_status = mariadb_status
         self.influx_ip = influx_url
         self.influx_port = influx_port
         self.influx_user = influx_user
@@ -56,19 +57,17 @@ class MetricThroughput(threading.Thread):
         self.metric_name = metric_name
         self.metric_dimensions = metric_dimension
         self.results_file = self.create_result_file()
-        self.mariadb_status = mariadb_status
-        self.mariadb_database = mariadb_database
-        self.mariadb_username = mariadb_username
-        self.mariadb_password = mariadb_password
-        self.mariadb_hostname = mariadb_hostname
         if self.mariadb_status == 'enabled':
+            self.mariadb_database = mariadb_database
+            self.mariadb_username = mariadb_username
+            self.mariadb_password = mariadb_password
+            self.mariadb_hostname = mariadb_hostname
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
                 self.testCaseID = testCaseID
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                # The following parameter "1" will be changed into the testCaseID provided by the shell script
                 self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
                 self.test_results = list()
                 self.test_params = list()

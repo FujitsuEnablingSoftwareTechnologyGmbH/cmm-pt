@@ -55,10 +55,6 @@ class LogLatency(threading.Thread):
                  mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
-        self.mariadb_database = mariadb_database
-        self.mariadb_username = mariadb_username
-        self.mariadb_password = mariadb_password
-        self.mariadb_hostname = mariadb_hostname
         self.keystone_url = keystone_url
         self.log_api_url = log_api_url
         self.elastic_url = elastic_url
@@ -73,10 +69,14 @@ class LogLatency(threading.Thread):
         self.token_handler = TokenHandler.TokenHandler(tenant_username, tenant_password, tenant_project, keystone_url)
         self.result_file = self.create_result_file()
         if self.mariadb_status == 'enabled':
+            self.mariadb_database = mariadb_database
+            self.mariadb_username = mariadb_username
+            self.mariadb_password = mariadb_password
+            self.mariadb_hostname = mariadb_hostname
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID=testCaseID
+                self.testCaseID = testCaseID
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)

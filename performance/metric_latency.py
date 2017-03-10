@@ -50,6 +50,7 @@ class MetricLatency(threading.Thread):
                  check_ticker, send_ticker, timeout, mariadb_status, mariadb_username=None,mariadb_password=None,
                  mariadb_hostname=None, mariadb_database=None):
         threading.Thread.__init__(self)
+        self.mariadb_status = mariadb_status
         self.keystone_url = keystone_url
         self.tenant_name = tenant_name
         self.tenant_password = tenant_password
@@ -62,12 +63,11 @@ class MetricLatency(threading.Thread):
         self.result_file = create_file(TEST_NAME)
         self.toke_handler = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
                                                       self.keystone_url)
-        self.mariadb_status = mariadb_status
-        self.mariadb_database = mariadb_database
-        self.mariadb_username = mariadb_username
-        self.mariadb_password = mariadb_password
-        self.mariadb_hostname = mariadb_hostname
         if self.mariadb_status == 'enabled':
+            self.mariadb_database = mariadb_database
+            self.mariadb_username = mariadb_username
+            self.mariadb_password = mariadb_password
+            self.mariadb_hostname = mariadb_hostname
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
