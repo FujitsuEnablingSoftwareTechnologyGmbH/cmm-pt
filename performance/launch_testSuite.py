@@ -117,6 +117,15 @@ if __name__ == "__main__":
             db.close()
 
     if SUITE == 'TestSuite2a':
+        if MARIADB_STATUS == 'enabled':
+            if ((MARIADB_HOSTNAME is not None) and
+                (MARIADB_USERNAME is not None) and
+                    (MARIADB_DATABASE is not None)):
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                TEST_CASE_ID = db_saver.save_testCase(db, SUITE)
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
 
         program_list = []
         for i in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
@@ -130,7 +139,7 @@ if __name__ == "__main__":
                                                  INFLUX_PASSWORD, INFLUX_DATABASE, i['runtime'], i['ticker'],
                                                  i['ticker_to_stop'], i['metric_name'], i['metric_dimensions'],
                                                  MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                                 MARIADB_DATABASE)
+                                                 MARIADB_DATABASE, TEST_CASE_ID)
             metric_throughput.start()
             program_list.append(metric_throughput)
 
@@ -147,7 +156,7 @@ if __name__ == "__main__":
                                      METRIC_API_URL + "/metrics", i['num_threads'], i['num_metrics_per_request'],
                                      i['LOG_EVERY_N'], i['runtime'], i['frequency'], i['metric_name'],
                                      i['metric_dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
-                                     MARIADB_HOSTNAME, MARIADB_DATABASE)
+                                     MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             metric_send.start()
             program_list.append(metric_send)
 
@@ -160,12 +169,16 @@ if __name__ == "__main__":
             metric_latency = MetricLatency(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                            METRIC_API_URL + "/metrics", i['runtime'], i['check_frequency'],
                                            i['send_frequency'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
-                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE)
+                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             metric_latency.start()
             program_list.append(metric_latency)
 
-            for program in program_list:
-                program.join()
+        for program in program_list:
+            program.join()
+        if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.close_testCase(db, TEST_CASE_ID)
+            db.close()
 
     if SUITE == 'TestSuite2b':
         if MARIADB_STATUS == 'enabled':
@@ -227,7 +240,6 @@ if __name__ == "__main__":
             log_latency.start()
             program_list.append(log_latency)
 
-
         for i in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
             print("MetricThroughput:, parameter:")
             print("    runtime          : " + str(i['runtime']))
@@ -239,7 +251,7 @@ if __name__ == "__main__":
                                                  INFLUX_PASSWORD, INFLUX_DATABASE, i['runtime'], i['ticker'],
                                                  i['ticker_to_stop'], i['metric_name'], i['metric_dimensions'],
                                                  MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                                 MARIADB_DATABASE)
+                                                 MARIADB_DATABASE, TEST_CASE_ID)
             metric_throughput.start()
             program_list.append(metric_throughput)
 
@@ -256,7 +268,7 @@ if __name__ == "__main__":
                                      METRIC_API_URL + "/metrics", i['num_threads'], i['num_metrics_per_request'],
                                      i['LOG_EVERY_N'], i['runtime'], i['frequency'], i['metric_name'],
                                      i['metric_dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
-                                     MARIADB_HOSTNAME, MARIADB_DATABASE)
+                                     MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             metric_send.start()
             program_list.append(metric_send)
 
@@ -269,17 +281,17 @@ if __name__ == "__main__":
             metric_latency = MetricLatency(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                            METRIC_API_URL + "/metrics", i['runtime'], i['check_frequency'],
                                            i['send_frequency'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
-                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE)
+                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             metric_latency.start()
             program_list.append(metric_latency)
 
-            for program in program_list:
-                program.join()
+        for program in program_list:
+            program.join()
 
-            if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
-                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-                db_saver.close_testCase(db, TEST_CASE_ID)
-                db.close()
+        if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.close_testCase(db, TEST_CASE_ID)
+            db.close()
 
     if SUITE == 'TestSuite3':
         # todo TestSuite3
@@ -336,7 +348,9 @@ if __name__ == "__main__":
             print("    outp_file_name: " + str(i['outp_file_name']))
             print("    outp_count: " + str(i['outp_count']))
             logagent_write = LogagentWrite(i['runtime'], i['log_ever_n'], i['inp_file_dir'], i['inp_file_list'],
-                                           i['outp_file_dir'], i['outp_file_name'], i['outp_count'])
+                                           i['outp_file_dir'], i['outp_file_name'], i['outp_count'],
+                                           MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                           MARIADB_DATABASE, TEST_CASE_ID)
             logagent_write.start()
             program_list.append(logagent_write)
 
@@ -366,7 +380,6 @@ if __name__ == "__main__":
                     (MARIADB_DATABASE is not None)):
                 db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
                 TEST_CASE_ID = db_saver.save_testCase(db, SUITE)
-                print TEST_CASE_ID
                 db.close()
             else:
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'

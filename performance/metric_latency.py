@@ -48,7 +48,7 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 class MetricLatency(threading.Thread):
     def __init__(self, keystone_url, tenant_name, tenant_password, tenant_project, metric_api_url, runtime,
                  check_ticker, send_ticker, timeout, mariadb_status, mariadb_username=None,mariadb_password=None,
-                 mariadb_hostname=None, mariadb_database=None):
+                 mariadb_hostname=None, mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.keystone_url = keystone_url
@@ -73,8 +73,8 @@ class MetricLatency(threading.Thread):
                     (self.mariadb_database is not None)):
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                # The following parameter "1" will be changed into the testCaseID provided by the shell script
-                self.testID = db_saver.save_test(db, 1, TEST_NAME)
+                self.testCaseID = testCaseID
+                self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
                 db.close()
                 self.test_results = list()
                 self.test_params = list()
