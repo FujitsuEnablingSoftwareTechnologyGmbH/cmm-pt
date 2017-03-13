@@ -182,7 +182,7 @@ class LogagentWrite(threading.Thread):
                 self.test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
                                     ['runtime', str(self.runtime)],
                                     ['output_count', str(self.outp_count)]]
-                for counter, inp in enumerate(inp_files):
+                for counter, inp in enumerate(self.inp_files):
                     self.test_params.append(['log_level'+str(counter), str(inp['loglevel'])])
                     self.test_params.append(['frequency'+str(counter), str(inp['frequency'])])
                 db_saver.save_test_params(db, self.testID, self.test_params)

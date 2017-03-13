@@ -362,7 +362,8 @@ if __name__ == "__main__":
             print("    runtime      : " + str(i['runtime']))
             print("    log_files: " + str(i['log_files']))
             logagent_latency = LogagentLatency(ELASTIC_URL, i['check_timeout'], i['check_ticker'], i['search_ticker'],
-                                               i['runtime'], i['log_files'])
+                                               i['runtime'], i['log_files'], MARIADB_STATUS, MARIADB_USERNAME,
+                                               MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             logagent_latency.start()
             program_list.append(logagent_latency)
 
