@@ -149,6 +149,7 @@ class LatencyTest(threading.Thread):
                                    latency_check_status,
                                    latency))
 
+
 class LogagentLatency(threading.Thread):
     def __init__(self, elastic_url, check_timeout, check_ticker, search_ticker, runtime, log_files,
                  mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
@@ -173,15 +174,14 @@ class LogagentLatency(threading.Thread):
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
-                self.test_params = list()
-                self.test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
-                                    ['runtime', str(self.runtime)],
-                                    ['check_ticker', str(self.check_ticker)],
-                                    ['search_ticker', str(self.search_ticker)]]
-                for counter, log_file in enumerate(self.log_files):
-                    self.test_params.append(['log_level'+str(counter), str(log_file['log_level'])])
-                    self.test_params.append(['msg_size'+str(counter), str(log_file['msg_size'])])
-                db_saver.save_test_params(db, self.testID, self.test_params)
+                test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
+                               ['runtime', str(self.runtime)],
+                               ['check_ticker', str(self.check_ticker)],
+                               ['search_ticker', str(self.search_ticker)]]
+                for counter, lg_file in enumerate(self.log_files):
+                    test_params.append(['log_level'+str(counter), str(lg_file['log_level'])])
+                    test_params.append(['msg_size'+str(counter), str(lg_file['msg_size'])])
+                db_saver.save_test_params(db, self.testID, test_params)
                 db.close()
             else:
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'

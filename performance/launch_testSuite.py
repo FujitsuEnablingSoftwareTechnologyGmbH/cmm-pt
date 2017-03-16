@@ -1,3 +1,17 @@
+#
+# Copyright 2017 FUJITSU LIMITED
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License. You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License
+# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+# or implied. See the License for the specific language governing permissions and limitations under
+# the License.
+#
+
 import argparse
 import MySQLdb
 import yaml
@@ -12,7 +26,6 @@ from log_throughput import LogThroughput
 from metric_latency import MetricLatency
 from metric_send import MetricSend
 from metric_throughput import MetricThroughput
-
 
 
 def create_program_argument_parser():
@@ -295,7 +308,6 @@ if __name__ == "__main__":
             db.close()
 
     if SUITE == 'TestSuite3':
-        # todo TestSuite3
         if MARIADB_STATUS == 'enabled':
             if ((MARIADB_HOSTNAME is not None) and
                     (MARIADB_USERNAME is not None) and
@@ -507,7 +519,8 @@ if __name__ == "__main__":
         print("    alarm_conf           : " + str(TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['alarm_conf']))
         aol = AOLTest(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT, METRIC_API_URL, LOG_API_URL,
                       TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['alarm_conf'],
-                      TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['runtime'])
+                      TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['runtime'], MARIADB_STATUS, MARIADB_USERNAME,
+                      MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
         aol.start()
         program_list.append(aol)
 

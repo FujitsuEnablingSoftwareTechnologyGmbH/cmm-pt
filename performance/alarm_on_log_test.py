@@ -1,5 +1,20 @@
+#
+# Copyright 2017 FUJITSU LIMITED
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License. You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License
+# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+# or implied. See the License for the specific language governing permissions and limitations under
+# the License.
+#
+
 import datetime
 import httplib
+import MySQLdb
 import simplejson
 import threading
 import time
@@ -7,6 +22,7 @@ import yaml
 from operator import sub
 from monascaclient import client
 from urlparse import urlparse
+import db_saver
 import TokenHandler
 from write_logs import create_file, write_line_to_file
 
@@ -87,8 +103,10 @@ class Alarm:
 
 class AOLTest(threading.Thread):
     def __init__(self,  keyston_url, tenant_username, tenant_password, tenant_project, metric_api_url, log_api_url,
-                 alarm_def_create_conf, runtime):
+                 alarm_def_create_conf, runtime, mariadb_status, mariadb_username=None, mariadb_password=None,
+                 mariadb_hostname=None, mariadb_database=None, testCaseID=1):
         threading.Thread.__init__(self)
+        self.mariadb_status = mariadb_status
         self.token_handler = TokenHandler.TokenHandler(tenant_username,
                                                        tenant_password,
                                                        tenant_project,
@@ -100,6 +118,29 @@ class AOLTest(threading.Thread):
         self.result_file = create_file(TEST_NAME)
         self.alarm_def = AlarmDefinition(self.token_handler, alarm_def_create_conf, metric_api_url)
         self.runtime = runtime
+        if self.mariadb_status == 'enabled':
+            self.mariadb_database = mariadb_database
+            self.mariadb_username = mariadb_username
+            self.mariadb_password = mariadb_password
+            self.mariadb_hostname = mariadb_hostname
+            if ((self.mariadb_hostname is not None) and
+                (self.mariadb_username is not None) and
+                    (self.mariadb_database is not None)):
+                self.testCaseID = testCaseID
+                db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                     self.mariadb_password, self.mariadb_database)
+                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
+                test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
+                               ['runtime', str(self.runtime)],
+                               ['number_of_alarm_definitions',
+                                str(self.alarm_def.alarm_def_conf[0]['number_of_alarm_def'])],
+                               ['alarms_per_alarm_definition',
+                                str(self.alarm_def.alarm_def_conf[0]['alarms_per_alarm_definition'])]]
+                db_saver.save_test_params(db, self.testID, test_params)
+                db.close()
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
 
     def run(self):
 
@@ -169,10 +210,17 @@ class AOLTest(threading.Thread):
 
     def check_alarm_latency(self):
         alarm_list = self.create_all_alarm_instance()
+        test_results = list()
         for alarm in alarm_list:
             print alarm.alarm_name
             for latency in alarm.get_alarm_latency(self.log_send_time_list):
                 print latency.total_seconds()
+                test_results.append(['latency',
+                                     str(latency.total_seconds()), datetime.datetime.now().replace(microsecond=0)])
+        db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                             self.mariadb_password, self.mariadb_database)
+        db_saver.save_test_results(db, self.testID, test_results)
+        db.close()
         self.write_result_to_file(alarm_list)
 
     def write_result_to_file(self, alarm_list):
@@ -183,9 +231,8 @@ class AOLTest(threading.Thread):
         for count, log_send_time in enumerate(self.log_send_time_list):
             res_line = str(log_send_time.strftime('%H:%M:%S.%f'))
             for alarm in alarm_list:
-
                 res_line += ',{}'.format((alarm.alarm_occur_time_list[count] - log_send_time).total_seconds())
-            write_line_to_file(self.result_file, res_line)
+                write_line_to_file(self.result_file, res_line)
 
     def create_all_alarm_instance(self):
         alarms = []
@@ -207,6 +254,12 @@ class AOLTest(threading.Thread):
 if __name__ == "__main__":
     BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
     TEST_CONF = yaml.load(file('test_configuration.yaml'))
+    MARIADB_STATUS = BASIC_CONF['mariadb']['status']
+    MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+    MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
+        if BASIC_CONF['mariadb']['password'] is not None else ''
+    MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+    MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
     KEYSTONE_URL = BASIC_CONF['url']['keystone']
     METRIC_API_URL = BASIC_CONF['url']['metrics_api']
     LOG_API_URL = BASIC_CONF['url']['log_api_url']
@@ -216,5 +269,6 @@ if __name__ == "__main__":
     RUNTIME = TEST_CONF[TEST_NAME]['runtime']
     ALARM_DEF_CONF = TEST_CONF[TEST_NAME]['alarm_conf']
     aolTest = AOLTest(KEYSTONE_URL, USER_CREDENTIAL['name'], USER_CREDENTIAL['password'],
-                      USER_CREDENTIAL['project'], METRIC_API_URL, LOG_API_URL, ALARM_DEF_CONF, RUNTIME)
+                      USER_CREDENTIAL['project'], METRIC_API_URL, LOG_API_URL, ALARM_DEF_CONF, RUNTIME,
+                      MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE)
     aolTest.start()
