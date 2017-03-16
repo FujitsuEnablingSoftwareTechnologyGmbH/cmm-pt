@@ -11,13 +11,15 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 #
-
+import argparse
 import datetime
 import httplib
 import MySQLdb
 import simplejson
 import threading
 import time
+
+import sys
 import yaml
 from operator import sub
 from monascaclient import client
@@ -251,23 +253,59 @@ class AOLTest(threading.Thread):
         alarms_info = simplejson.loads(res.read())
         return [alarm_state['id'] for alarm_state in alarms_info['elements']]
 
+def create_program_argument_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
+    parser.add_argument('-mariadb_username', action='store', dest='mariadb_username')
+    parser.add_argument('-mariadb_password', action='store', dest='mariadb_password', default='')
+    parser.add_argument('-mariadb_hostname', action='store', dest='mariadb_hostname')
+    parser.add_argument('-mariadb_database', action='store', dest='mariadb_database')
+    parser.add_argument('-keystone_url', action="store", dest='keystone_url')
+    parser.add_argument('-metric_api_url', action="store", dest='metric_api_url')
+    parser.add_argument('-log_api_url', action="store", dest='log_api_url')
+    parser.add_argument('-tenant_name', action="store", dest='tenant_name')
+    parser.add_argument('-tenant_password', action="store", dest='tenant_password')
+    parser.add_argument('-tenant_project', action="store", dest='tenant_project')
+    parser.add_argument('-runtime', action="store", dest='runtime', type=int)
+    parser.add_argument('-alarm_conf', action="store", dest='alarm_conf', nargs='+')
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
-    TEST_CONF = yaml.load(file('test_configuration.yaml'))
-    MARIADB_STATUS = BASIC_CONF['mariadb']['status']
-    MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
-    MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
-        if BASIC_CONF['mariadb']['password'] is not None else ''
-    MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
-    MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
-    KEYSTONE_URL = BASIC_CONF['url']['keystone']
-    METRIC_API_URL = BASIC_CONF['url']['metrics_api']
-    LOG_API_URL = BASIC_CONF['url']['log_api_url']
-    USER_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
-                       "password": BASIC_CONF['users']['tenant_password'],
-                       "project": BASIC_CONF['users']['tenant_project']}
-    RUNTIME = TEST_CONF[TEST_NAME]['runtime']
-    ALARM_DEF_CONF = TEST_CONF[TEST_NAME]['alarm_conf']
+    if len(sys.argv) <= 1:
+        BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        TEST_CONF = yaml.load(file('test_configuration.yaml'))
+        MARIADB_STATUS = BASIC_CONF['mariadb']['status']
+        MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
+        MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\
+            if BASIC_CONF['mariadb']['password'] is not None else ''
+        MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
+        MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
+        KEYSTONE_URL = BASIC_CONF['url']['keystone']
+        METRIC_API_URL = BASIC_CONF['url']['metrics_api']
+        LOG_API_URL = BASIC_CONF['url']['log_api_url']
+        USER_CREDENTIAL = {"name": BASIC_CONF['users']['tenant_name'],
+                           "password": BASIC_CONF['users']['tenant_password'],
+                           "project": BASIC_CONF['users']['tenant_project']}
+        RUNTIME = TEST_CONF[TEST_NAME]['runtime']
+        ALARM_DEF_CONF = TEST_CONF[TEST_NAME]['alarm_conf']
+    else:
+        program_argument = create_program_argument_parser()
+        MARIADB_STATUS = program_argument.mariadb_status
+        MARIADB_USERNAME = program_argument.mariadb_username
+        MARIADB_PASSWORD = program_argument.mariadb_password if program_argument.mariadb_password is not None else ''
+        MARIADB_HOSTNAME = program_argument.mariadb_hostname
+        MARIADB_DATABASE = program_argument.mariadb_database
+        KEYSTONE_URL = program_argument.keystone_url
+        USER_CREDENTIAL = {"name": program_argument.tenant_name,
+                             "password": program_argument.tenant_password,
+                             "project": program_argument.tenant_project}
+        METRIC_API_URL = program_argument.metric_api_url
+        LOG_API_URL = program_argument.log_api_url
+        RUNTIME = program_argument.runtime
+        ALARM_DEF_CONF = [{'severity': alarm_def_con[0], 'number_of_alarm_def': alarm_def_con[1],
+                           'alarms_per_alarm_definition': alarm_def_con[2]} for alarm_def_con in
+                         [alarm_def_con.split(':') for alarm_def_con in program_argument.alarm_conf]]
+
     aolTest = AOLTest(KEYSTONE_URL, USER_CREDENTIAL['name'], USER_CREDENTIAL['password'],
                       USER_CREDENTIAL['project'], METRIC_API_URL, LOG_API_URL, ALARM_DEF_CONF, RUNTIME,
                       MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE)
