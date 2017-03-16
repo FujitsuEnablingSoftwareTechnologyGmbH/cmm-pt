@@ -132,12 +132,16 @@ class AOLTest(threading.Thread):
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
+                number_of_alarm_def = 0
+                total_number_of_alarms = 0
+                for alarm_def_conf in self.alarm_def.alarm_def_conf:
+                    number_of_alarm_def += alarm_def_conf['number_of_alarm_def']
+                    total_number_of_alarms +=\
+                        alarm_def_conf['number_of_alarm_def']*alarm_def_conf['alarms_per_alarm_definition']
                 test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
                                ['runtime', str(self.runtime)],
-                               ['number_of_alarm_definitions',
-                                str(self.alarm_def.alarm_def_conf[0]['number_of_alarm_def'])],
-                               ['alarms_per_alarm_definition',
-                                str(self.alarm_def.alarm_def_conf[0]['alarms_per_alarm_definition'])]]
+                               ['number_of_alarm_definitions', str(number_of_alarm_def)],
+                               ['total_number_of_alarms', str(total_number_of_alarms)]]
                 db_saver.save_test_params(db, self.testID, test_params)
                 db.close()
             else:
@@ -253,6 +257,7 @@ class AOLTest(threading.Thread):
         alarms_info = simplejson.loads(res.read())
         return [alarm_state['id'] for alarm_state in alarms_info['elements']]
 
+
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
@@ -292,7 +297,8 @@ if __name__ == "__main__":
         program_argument = create_program_argument_parser()
         MARIADB_STATUS = program_argument.mariadb_status
         MARIADB_USERNAME = program_argument.mariadb_username
-        MARIADB_PASSWORD = program_argument.mariadb_password if program_argument.mariadb_password is not None else ''
+        MARIADB_PASSWORD = program_argument.mariadb_password \
+            if program_argument.mariadb_password is not None else ''
         MARIADB_HOSTNAME = program_argument.mariadb_hostname
         MARIADB_DATABASE = program_argument.mariadb_database
         KEYSTONE_URL = program_argument.keystone_url

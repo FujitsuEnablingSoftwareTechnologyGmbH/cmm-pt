@@ -201,6 +201,7 @@ class LogagentLatency(threading.Thread):
         for thread in thread_list:
             thread.join()
 
+
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-mariadb_status', action='store', dest='mariadb_status')
