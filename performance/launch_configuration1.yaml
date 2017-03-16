@@ -73,7 +73,7 @@ TestSuite2b:
         log_throughput:
           - LOG_EVERY_N: 1000
             runtime: 3600
-            ticker: 10 
+            ticker: 10
             num_stop: 10
             search_field: application_type
             search_string: systemtest
@@ -115,42 +115,44 @@ TestSuite3:
      Program:
         logagent_write:
           - log_ever_n: 100
-            runtime:  3600                             
-            inp_file_dir: xxx
+            runtime:  10
+            inp_file_dir: input/
             inp_file_list: 
-             - name: file1.txt 
+             - name: latency200.txt
                frequency: 1
                loglevel: ERROR
-             - name: file2.txt 
+             - name: latency200.txt
                frequency: 70
                loglevel: INFO  
-            outp_file_dir: xxx
+            outp_file_dir: /var/log/st_test/
             outp_file_name: 'test.log'
             outp_count: 2 
         logagent_latency:
           - check_timeout: 240
             check_ticker: 10 
             search_ticker: 1 
-            runtime: 360
+            runtime: 10
             log_files:
-             - file: xxx
-               directory: xxx
+             - file: test.log
+               directory: /var/log/st_test/
                log_level: ERROR
                msg_size: 200
+
         log_throughput:
           - LOG_EVERY_N: 1000
-            runtime: 3600
-            ticker: 10 
+            runtime: 10
+            ticker: 10
             num_stop: 10
-            search_field: ??????? logagent
-            search_string: ???????logagent
+            search_field: application_type
+            search_string:
+                - systemtest
         log_send:
          - num_threads: 1
            log_every_n: 1000
            log_api_type: bulk
            num_of_logs_in_one_bulk: 125
            log_size: 200
-           runtime:  3600
+           runtime:  10
            frequency: 8
            log_level: NONE
            dimension:
@@ -165,7 +167,7 @@ TestSuite4a:
            log_api_type: bulk
            num_of_logs_in_one_bulk: 125
            log_size: 200
-           runtime:  120
+           runtime:  10
            frequency: 8
            log_level: INFO
            dimension:
@@ -176,7 +178,7 @@ TestSuite4a:
            log_api_type: bulk
            num_of_logs_in_one_bulk: 1           
            log_size: 200
-           runtime:  120
+           runtime:  10
            frequency: 0.1
            log_level: ERROR
            dimension:
@@ -187,21 +189,21 @@ TestSuite4a:
            log_api_type: bulk
            num_of_logs_in_one_bulk: 1
            log_size: 200
-           runtime:  120
+           runtime:  10
            frequency: 0.1
            log_level: WARNING
            dimension:
            - key: hostname
              value: systemtestWARNING
         metric_throughput:
-         - runtime: 120
+         - runtime: 10
            metric_name: log.error
            ticker: 10
            ticker_to_stop: 10
            metric_dimensions:
             - key: hostname
               value: systemtestERROR
-         - runtime: 120
+         - runtime: 10
            metric_name: log.warning
            ticker: 10
            ticker_to_stop: 10
@@ -211,17 +213,22 @@ TestSuite4a:
        
 TestSuite4: 
      Program:
-        alarm_log:
-           alarm_definition_name: alarm_on_log
-           number_of_alarm_definition: 10
-           alarms_per_alarm_definition: 10
+        alarm_on_log:
+            runtime : 300
+            alarm_conf:
+            - severity: error
+              number_of_alarm_def: 2
+              alarms_per_alarm_definition: 1
+            - severity: warning
+              number_of_alarm_def: 2
+              alarms_per_alarm_definition: 2
         log_send:
          - num_threads: 1
            log_every_n: 1000
            log_api_type: bulk
            num_of_logs_in_one_bulk: 125
            log_size: 200
-           runtime:  3600
+           runtime:  300
            frequency: 8
            log_level: INFO
            dimension:
@@ -231,7 +238,7 @@ TestSuite4:
          - num_threads: 1
            num_metrics_per_request: 100
            LOG_EVERY_N: 1000
-           runtime: 3600
+           runtime: 300
            frequency: 10 
            metric_name: systemtest
            metric_dimension:

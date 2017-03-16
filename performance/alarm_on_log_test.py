@@ -12,7 +12,7 @@ from write_logs import create_file, write_line_to_file
 
 ALARM_PATH = '/alarms'
 BULK_API_PATH = '/v3.0/logs'
-TEST_NAME = 'Alarm_on_log'
+TEST_NAME = 'alarm_on_log'
 
 ALARM_TRIGGER_TIMEOUT = 120
 RESPONSE_OK_STATUS = 200

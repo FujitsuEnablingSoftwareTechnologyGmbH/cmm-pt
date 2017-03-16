@@ -3,6 +3,7 @@ import MySQLdb
 import yaml
 from urlparse import urlparse
 import db_saver
+from alarm_on_log_test import AOLTest
 from logagent_write import LogagentWrite
 from logagent_latency import LogagentLatency
 from log_latency import LogLatency
@@ -385,8 +386,9 @@ if __name__ == "__main__":
             else:
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'
                 exit()
-        METRIC_THROUGHPUT_P = TESTSUITE_CONF[SUITE]['Program']['metric_throughput']
 
+        program_list = []
+        METRIC_THROUGHPUT_P = TESTSUITE_CONF[SUITE]['Program']['metric_throughput']
         for i in METRIC_THROUGHPUT_P:
             print("MetricThroughput: " + str(i) + ", parameter")
             print("    runtime          : " + str(i['runtime']))
@@ -408,6 +410,7 @@ if __name__ == "__main__":
                                                  MARIADB_DATABASE,
                                                  TEST_CASE_ID)
             metric_throughput.start()
+            program_list.append(metric_throughput)
 
         # scw: fixed code
         DELAY = 10
@@ -442,13 +445,76 @@ if __name__ == "__main__":
                                TEST_CASE_ID)
 
             log_send.start()
-        metric_throughput.join()
-        log_send.join()
+            program_list.append(log_send)
+
+        for program in program_list:
+            program.join()
         if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
             db_saver.close_testCase(db, TEST_CASE_ID)
             db.close()
 
     if SUITE == 'TestSuite4':
-        # todo TestSuite4
-        print('still Todo')
+        if MARIADB_STATUS == 'enabled':
+            if ((MARIADB_HOSTNAME is not None) and
+                    (MARIADB_USERNAME is not None) and
+                    (MARIADB_DATABASE is not None)):
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                TEST_CASE_ID = db_saver.save_testCase(db, SUITE)
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
+        program_list = []
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+            print("LogSend:, parameter:")
+            print("    num_threads          : " + str(i['num_threads']))
+            print("    log_every_n           : " + str(i['log_every_n']))
+            print("    log_api_type   : " + str(i['log_api_type']))
+            print("    num_of_logs_in_one_bulk      : " + str(i['num_of_logs_in_one_bulk']))
+            print("    log_size: " + str(i['log_size']))
+            print("    runtime: " + str(i['runtime']))
+            print("    frequency: " + str(i['frequency']))
+            print("    log_level: " + str(i['log_level']))
+            print("    dimension: " + str(i['dimension']))
+            log_send = LogSend(KEYSTONE_URL, LOG_API_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                               i['num_threads'], i['runtime'], i['log_every_n'], i['log_api_type'],
+                               i['num_of_logs_in_one_bulk'], i['frequency'], i['log_size'], i['log_level'],
+                               i['dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
+                               MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            log_send.start()
+            program_list.append(log_send)
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
+            print("MetricSend:, parameter:")
+            print("    num_threads          : " + str(i['num_threads']))
+            print("    num_metrics_per_request           : " + str(i['num_metrics_per_request']))
+            print("    LOG_EVERY_N   : " + str(i['LOG_EVERY_N']))
+            print("    runtime      : " + str(i['runtime']))
+            print("    frequency: " + str(i['frequency']))
+            print("    metric_name: " + str(i['metric_name']))
+            print("    metric_dimension: " + str(i['metric_dimension']))
+            metric_send = MetricSend(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                     METRIC_API_URL + "/metrics", i['num_threads'], i['num_metrics_per_request'],
+                                     i['LOG_EVERY_N'], i['runtime'], i['frequency'], i['metric_name'],
+                                     i['metric_dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
+                                     MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            metric_send.start()
+            program_list.append(metric_send)
+
+        print("Alarm on LOG, parameter:")
+        print("    runtime          : " + str(TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['runtime']))
+        print("    alarm_conf           : " + str(TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['alarm_conf']))
+        aol = AOLTest(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT, METRIC_API_URL, LOG_API_URL,
+                      TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['alarm_conf'],
+                      TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['runtime'])
+        aol.start()
+        program_list.append(aol)
+
+        for program in program_list:
+            program.join()
+
+        if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.close_testCase(db, TEST_CASE_ID)
+            db.close()
