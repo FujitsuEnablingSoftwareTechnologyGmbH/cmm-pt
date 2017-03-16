@@ -18,7 +18,6 @@ import MySQLdb
 import simplejson
 import threading
 import time
-
 import sys
 import yaml
 from operator import sub
@@ -48,11 +47,12 @@ class AlarmDefinition:
             severity = alarm_group['severity']
             num_of_alarms = alarm_group['alarms_per_alarm_definition']
             for count in range(alarm_group['number_of_alarm_def']):
-                self.create_alarm_definition('throughput_test_{}_{}'.format(severity, count), severity, num_of_alarms)
+                self.create_alarm_definition('st_aol_test_{}_{}'.format(severity, count), severity, num_of_alarms)
 
     def clear_alarms(self):
         for alarm_def in self.monasca_client.alarm_definitions.list():
-            self.monasca_client.alarm_definitions.delete(alarm_id=alarm_def['id'])
+            if 'st_aol_test_' in alarm_def['name']:
+                self.monasca_client.alarm_definitions.delete(alarm_id=alarm_def['id'])
 
     def create_alarm_definition(self, alarm_def_name, severity, num_of_alarms):
         try:
