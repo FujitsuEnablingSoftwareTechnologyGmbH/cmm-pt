@@ -151,13 +151,17 @@ class AOLTest(threading.Thread):
     def run(self):
 
         start_time = time.time()
+        alarm_count = 0
         while self.runtime > time.time() - start_time:
             self.send_bulk()
             self.wait_util_all_alarm_are_triggered()
+            alarm_count += 1
             while not self.check_if_alarms_status_is_undetermined():
                 print "alarm still in alarm state"
                 time.sleep(30)
-        self.check_alarm_latency()
+
+            self.check_latency(alarm_count)
+        self.save_result_to_db()
 
     def wait_util_all_alarm_are_triggered(self):
         start_time = time.time()
@@ -214,7 +218,7 @@ class AOLTest(threading.Thread):
                 return False
         return True
 
-    def check_alarm_latency(self):
+    def save_result_to_db(self):
         alarm_list = self.create_all_alarm_instance()
         test_results = list()
         for alarm in alarm_list:
@@ -227,18 +231,22 @@ class AOLTest(threading.Thread):
                              self.mariadb_password, self.mariadb_database)
         db_saver.save_test_results(db, self.testID, test_results)
         db.close()
-        self.write_result_to_file(alarm_list)
 
-    def write_result_to_file(self, alarm_list):
+    def check_latency(self, alarm_count):
+        alarm_list = self.create_all_alarm_instance()
+        self.write_result_to_file(alarm_list, alarm_count)
+
+    def write_result_to_file(self, alarm_list, alarm_count):
         header_line = 'Log_send'
-        for alarm in alarm_list:
-            header_line += ',{}({})'.format(alarm.alarm_name, alarm.id)
-        write_line_to_file(self.result_file, header_line)
-        for count, log_send_time in enumerate(self.log_send_time_list):
-            res_line = str(log_send_time.strftime('%H:%M:%S.%f'))
+        if alarm_count is 1:
             for alarm in alarm_list:
-                res_line += ',{}'.format((alarm.alarm_occur_time_list[count] - log_send_time).total_seconds())
-                write_line_to_file(self.result_file, res_line)
+                header_line += ',{}({})'.format(alarm.alarm_name, alarm.id)
+            write_line_to_file(self.result_file, header_line)
+        res_line = str(self.log_send_time_list[alarm_count - 1].strftime('%H:%M:%S.%f'))
+        for alarm in alarm_list:
+            res_line += ',{}'.format((alarm.alarm_occur_time_list[alarm_count - 1] -
+                                      self.log_send_time_list[alarm_count - 1]).total_seconds())
+        write_line_to_file(self.result_file, res_line)
 
     def create_all_alarm_instance(self):
         alarms = []
@@ -255,7 +263,9 @@ class AOLTest(threading.Thread):
             print ('FAILED TO RETRIEVE ALARMS ID')
             return False
         alarms_info = simplejson.loads(res.read())
-        return [alarm_state['id'] for alarm_state in alarms_info['elements']]
+        return [alarm_state['id'] for alarm_state in alarms_info['elements']
+                if 'st_aol_test' in alarm_state['alarm_definition']['name']]
+
 
 
 def create_program_argument_parser():
