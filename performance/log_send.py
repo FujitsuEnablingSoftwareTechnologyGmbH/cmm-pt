@@ -202,7 +202,7 @@ class LogSend(threading.Thread):
                                 ['start_time', str(datetime.datetime.fromtimestamp(start_time).replace(microsecond=0))],
                                 ['end_time', str(datetime.datetime.fromtimestamp(end_time).replace(microsecond=0))],
                                 ['runtime', str(self.runtime)],
-                                ['avreage_per_second', str(log_send_per_sec)],
+                                ['average_per_second', str(log_send_per_sec)],
                                 ['log_level', str(self.log_level)],
                                 ['log_size', str(self.log_size)],
                                 ['bulk_size', self.bulk_size],

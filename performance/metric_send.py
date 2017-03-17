@@ -157,7 +157,7 @@ class MetricSend(threading.Thread):
                            ['end_time', stp_time],
                            ['runtime', str(self.runtime)],
                            ['test_duration', str(test_duration)],
-                           ['avreage_per_second', str(metric_send_per_sec)],
+                           ['average_per_second', str(metric_send_per_sec)],
                            ['frequency', str(self.frequency)]]
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
