@@ -154,8 +154,8 @@ class MetricThroughput(threading.Thread):
                         break
                 else:
                     count_ticker_to_stop = 0
-            if self.ticker_to_stop > query_time:
-                time.sleep(self.ticker_to_stop - query_time)
+            if self.ticker > query_time:
+                time.sleep(self.ticker - query_time)
         self.write_final_result_line_to_file(count)
         if self.mariadb_status == 'enabled':
             self.test_params = [['start_time', str(strt_time)],
