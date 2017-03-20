@@ -162,7 +162,7 @@ class MetricThroughput(threading.Thread):
                                 ['end_time', str(datetime.datetime.now().replace(microsecond=0))],
                                 ['metric_name', str(self.metric_name)],
                                 ['runtime', str(self.runtime)],
-                                ['total_logs',str(count)]]
+                                ['total_metrics', str(int(count))]]
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
             db_saver.save_test_params(db, self.testID, self.test_params)
