@@ -100,7 +100,7 @@ write_logs:
     inp_file_dir: 'C:\TEMP\test_logs\'
     outp_file_name_ext: ".csv"        
 
-Alarm_on_log:
+alarm_on_log:
     runtime : 600
     alarm_conf:
         - severity: error
@@ -114,3 +114,10 @@ alarm_log:
     alarm_definition_name: # name pater for all alarm definitions
     number_of_alarm_definition:  #Number of alarm definition that will be crated
     alarms_per_alarm_definition: #number of alarms tiger by single alarm definition
+
+count_metric:
+    metric_name: mem.total_mb
+    start_time: ###expect format year-mont-day hour:minute:second  example: 2017-3-18 18:19:30
+    end_time: 2017-3-21 18:19:30
+
+
