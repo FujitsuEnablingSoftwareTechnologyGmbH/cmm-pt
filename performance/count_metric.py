@@ -17,9 +17,11 @@ This program count number of metric specified by name in influx database in spec
 """
 import argparse
 import datetime
+import MySQLdb
 import sys
 import yaml
 from influxdb import InfluxDBClient
+import db_saver
 from write_logs import create_file, write_line_to_file
 
 TEST_NAME = 'count_metric'
@@ -27,13 +29,36 @@ TEST_NAME = 'count_metric'
 
 class CountMetric:
     def __init__(self, influx_address, influx_user, influx_password, influx_database, start_time, end_time,
-                 metric_name):
+                 metric_name, mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
+                 mariadb_database=None, test_case_id=1):
         self.influx_Client = InfluxDBClient(influx_address.split(':')[0], influx_address.split(':')[1],
                                             influx_user, influx_password, influx_database)
         self.start_time = start_time
         self.end_time = end_time
         self.query_time_range = self.prepare_time_range()
         self.metric_name = metric_name
+        self.mariadb_status = mariadb_status
+        self.mariadb_username = mariadb_username
+        self.mariadb_password = mariadb_password
+        self.mariadb_hostname = mariadb_hostname
+        self.mariadb_database = mariadb_database
+        self.testCaseID = test_case_id
+        if self.mariadb_status == 'enabled':
+                db_connection = self.create_mariadb_connection()
+                self.testID = db_saver.save_test(db_connection, test_case_id, TEST_NAME)
+                test_params = [['metric_name', str(metric_name)],
+                               ['start_time', str(start_time)],
+                               ['end_time', str(end_time)]]
+                db_saver.save_test_params(db_connection, self.testID, test_params)
+                db_connection.close()
+
+    def create_mariadb_connection(self):
+        if ((self.mariadb_hostname is not None) and
+                (self.mariadb_username is not None) and
+                (self.mariadb_database is not None)):
+            return MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                   self.mariadb_password, self.mariadb_database)
+        raise ValueError('One of mariadb params is not set while mariadb_status==enabled')
 
     def prepare_time_range(self):
         time_range = list()
@@ -59,6 +84,7 @@ class CountMetric:
             count += res
         self.write_result(count)
 
+
     def parse_query_response(self, response):
         if len(list(response)) is 0:
             return 0
@@ -70,9 +96,11 @@ class CountMetric:
         test_result = create_file(TEST_NAME)
         write_line_to_file(test_result, 'start_date:{} end_date:{}'.format(self.start_time, self.end_time))
         write_line_to_file(test_result, 'Total number of metric:{}'.format(metric_count))
-
-
-
+        if self.mariadb_status == 'enabled':
+            db_connection = self.create_mariadb_connection()
+            db_saver.save_test_results(db_connection, self.testID, [['metric_count', metric_count,
+                                                                     datetime.datetime.now().replace(microsecond=0)]])
+            db_connection.close()
 
 
 def create_program_argument_parser():
@@ -126,6 +154,7 @@ if __name__ == "__main__":
         METRIC_NAME = program_argument.metric_name
 
     count_metric = CountMetric(INFLUX_ADDRESS, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE, STAT_TIME, END_TIME,
-                               METRIC_NAME)
+                               METRIC_NAME, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                               MARIADB_DATABASE)
     count_metric.count_metric()
 
