@@ -237,16 +237,14 @@ class AOLTest(threading.Thread):
         self.write_result_to_file(alarm_list, alarm_count)
 
     def write_result_to_file(self, alarm_list, alarm_count):
-        header_line = 'Log_send'
         if alarm_count is 1:
-            for alarm in alarm_list:
-                header_line += ',{}({})'.format(alarm.alarm_name, alarm.id)
-            write_line_to_file(self.result_file, header_line)
-        res_line = str(self.log_send_time_list[alarm_count - 1].strftime('%H:%M:%S.%f'))
-        for alarm in alarm_list:
-            res_line += ',{}'.format((alarm.alarm_occur_time_list[alarm_count - 1] -
-                                      self.log_send_time_list[alarm_count - 1]).total_seconds())
-        write_line_to_file(self.result_file, res_line)
+            for count, alarm in enumerate(alarm_list):
+                header_line = '{},{}({})'.format(count, alarm.alarm_name, alarm.id)
+                write_line_to_file(self.result_file, header_line)
+        for count, alarm in enumerate(alarm_list):
+            res_line = '{},{}'.format(count, (alarm.alarm_occur_time_list[alarm_count - 1] -
+                                        self.log_send_time_list[alarm_count - 1]).total_seconds())
+            write_line_to_file(self.result_file, res_line)
 
     def create_all_alarm_instance(self):
         alarms = []
@@ -265,7 +263,6 @@ class AOLTest(threading.Thread):
         alarms_info = simplejson.loads(res.read())
         return [alarm_state['id'] for alarm_state in alarms_info['elements']
                 if 'st_aol_test' in alarm_state['alarm_definition']['name']]
-
 
 
 def create_program_argument_parser():
@@ -313,14 +310,14 @@ if __name__ == "__main__":
         MARIADB_DATABASE = program_argument.mariadb_database
         KEYSTONE_URL = program_argument.keystone_url
         USER_CREDENTIAL = {"name": program_argument.tenant_name,
-                             "password": program_argument.tenant_password,
-                             "project": program_argument.tenant_project}
+                           "password": program_argument.tenant_password,
+                           "project": program_argument.tenant_project}
         METRIC_API_URL = program_argument.metric_api_url
         LOG_API_URL = program_argument.log_api_url
         RUNTIME = program_argument.runtime
         ALARM_DEF_CONF = [{'severity': alarm_def_con[0], 'number_of_alarm_def': alarm_def_con[1],
                            'alarms_per_alarm_definition': alarm_def_con[2]} for alarm_def_con in
-                         [alarm_def_con.split(':') for alarm_def_con in program_argument.alarm_conf]]
+                          [alarm_def_con.split(':') for alarm_def_con in program_argument.alarm_conf]]
 
     aolTest = AOLTest(KEYSTONE_URL, USER_CREDENTIAL['name'], USER_CREDENTIAL['password'],
                       USER_CREDENTIAL['project'], METRIC_API_URL, LOG_API_URL, ALARM_DEF_CONF, RUNTIME,
