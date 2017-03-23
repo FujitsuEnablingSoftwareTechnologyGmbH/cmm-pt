@@ -14,6 +14,7 @@
 import argparse
 import datetime
 import httplib
+import numpy
 import MySQLdb
 import simplejson
 import threading
@@ -120,6 +121,7 @@ class AOLTest(threading.Thread):
         self.result_file = create_file(TEST_NAME)
         self.alarm_def = AlarmDefinition(self.token_handler, alarm_def_create_conf, metric_api_url)
         self.runtime = runtime
+        self.alarm_latency_statistic = list()
         if self.mariadb_status == 'enabled':
             self.mariadb_database = mariadb_database
             self.mariadb_username = mariadb_username
@@ -237,14 +239,22 @@ class AOLTest(threading.Thread):
         self.write_result_to_file(alarm_list, alarm_count)
 
     def write_result_to_file(self, alarm_list, alarm_count):
+        latency_list = list()
         if alarm_count is 1:
             for count, alarm in enumerate(alarm_list):
                 header_line = '{},{}({})'.format(count, alarm.alarm_name, alarm.id)
                 write_line_to_file(self.result_file, header_line)
         for count, alarm in enumerate(alarm_list):
-            res_line = '{},{}'.format(count, (alarm.alarm_occur_time_list[alarm_count - 1] -
-                                        self.log_send_time_list[alarm_count - 1]).total_seconds())
+            latency = (alarm.alarm_occur_time_list[alarm_count - 1] -
+                       self.log_send_time_list[alarm_count - 1]).total_seconds()
+            res_line = '{},{}'.format(count, latency)
             write_line_to_file(self.result_file, res_line)
+            latency_list.append(latency)
+        self.alarm_latency_statistic.append({'time': str(self.log_send_time_list[alarm_count - 1]),
+                                             'min': min(latency_list),
+                                             'max': max(latency_list),
+                                             'percentile': numpy.percentile(latency_list, 90)})
+
 
     def create_all_alarm_instance(self):
         alarms = []
