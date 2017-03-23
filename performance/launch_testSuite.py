@@ -18,6 +18,7 @@ import yaml
 from urlparse import urlparse
 import db_saver
 from alarm_on_log_test import AOLTest
+from count_metric import CountMetric
 from logagent_write import LogagentWrite
 from logagent_latency import LogagentLatency
 from log_latency import LogLatency
@@ -531,3 +532,118 @@ if __name__ == "__main__":
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
             db_saver.close_testCase(db, TEST_CASE_ID)
             db.close()
+
+    if SUITE == 'TestSuite5':
+        if MARIADB_STATUS == 'enabled':
+            if ((MARIADB_HOSTNAME is not None) and
+                    (MARIADB_USERNAME is not None) and
+                    (MARIADB_DATABASE is not None)):
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                TEST_CASE_ID = db_saver.save_testCase(db, SUITE)
+            else:
+                print 'One of mariadb params is not set while mariadb_status=="enabled"'
+                exit()
+
+        program_list = []
+        for i in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
+            print("LogThroughput:, parameter:")
+            print("    LOG_EVERY_N          : " + str(i['LOG_EVERY_N']))
+            print("    runtime          : " + str(i['runtime']))
+            print("    ticker          : " + str(i['ticker']))
+            print("    num_stop          : " + str(i['num_stop']))
+            print("    search_field          : " + str(i['search_field']))
+            print("    search_string          : " + str(i['search_string']))
+            log_throughput = LogThroughput(TENANT_PROJECT, ELASTIC_URL, i['runtime'], i['ticker'], i['search_string'],
+                                           i['search_field'], i['num_stop'], MARIADB_STATUS, MARIADB_USERNAME,
+                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            log_throughput.start()
+            program_list.append(log_throughput)
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+            print("LogSend:, parameter:")
+            print("    num_threads          : " + str(i['num_threads']))
+            print("    log_every_n           : " + str(i['log_every_n']))
+            print("    log_api_type   : " + str(i['log_api_type']))
+            print("    num_of_logs_in_one_bulk      : " + str(i['num_of_logs_in_one_bulk']))
+            print("    log_size: " + str(i['log_size']))
+            print("    runtime: " + str(i['runtime']))
+            print("    frequency: " + str(i['frequency']))
+            print("    log_level: " + str(i['log_level']))
+            print("    dimension: " + str(i['dimension']))
+            log_send = LogSend(KEYSTONE_URL, LOG_API_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                               i['num_threads'], i['runtime'], i['log_every_n'], i['log_api_type'],
+                               i['num_of_logs_in_one_bulk'], i['frequency'], i['log_size'], i['log_level'],
+                               i['dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
+                               MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            log_send.start()
+            program_list.append(log_send)
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
+            print("LogLatency:, parameter:")
+            print("    num_threads          : " + str(i['num_threads']))
+            print("    log_api_type          : " + str(i['log_api_type']))
+            print("    num_of_logs_in_one_bulk          : " + str(i['num_of_logs_in_one_bulk']))
+            print("    log_size          : " + str(i['log_size']))
+            print("    runtime          : " + str(i['runtime']))
+            print("    ticker          : " + str(i['ticker']))
+
+            log_latency = LogLatency(KEYSTONE_URL, LOG_API_URL, ELASTIC_URL, TENANT_USERNAME, TENANT_PASSWORD,
+                                     TENANT_PROJECT, i['runtime'], i['num_threads'], i['log_api_type'],
+                                     i['num_of_logs_in_one_bulk'], i['log_size'], MARIADB_STATUS, MARIADB_USERNAME,
+                                     MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            log_latency.start()
+            program_list.append(log_latency)
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
+            print("MetricSend:, parameter:")
+            print("    num_threads          : " + str(i['num_threads']))
+            print("    num_metrics_per_request           : " + str(i['num_metrics_per_request']))
+            print("    LOG_EVERY_N   : " + str(i['LOG_EVERY_N']))
+            print("    runtime      : " + str(i['runtime']))
+            print("    frequency: " + str(i['frequency']))
+            print("    metric_name: " + str(i['metric_name']))
+            print("    metric_dimension: " + str(i['metric_dimension']))
+            metric_send = MetricSend(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                     METRIC_API_URL + "/metrics", i['num_threads'], i['num_metrics_per_request'],
+                                     i['LOG_EVERY_N'], i['runtime'], i['frequency'], i['metric_name'],
+                                     i['metric_dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
+                                     MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            metric_send.start()
+            program_list.append(metric_send)
+
+        for i in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
+            print("MetricLAtency:, parameter:")
+            print("    runtime          : " + str(i['runtime']))
+            print("    check_frequency           : " + str(i['check_frequency']))
+            print("    send_frequency   : " + str(i['send_frequency']))
+            print("    runtime      : " + str(i['timeout']))
+            metric_latency = MetricLatency(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                           METRIC_API_URL + "/metrics", i['runtime'], i['check_frequency'],
+                                           i['send_frequency'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
+                                           MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            metric_latency.start()
+            program_list.append(metric_latency)
+
+        for program in program_list:
+            program.join()
+
+        TESTSUITE_CONF[SUITE]['Program']['count_metric']
+        print("ContMretic, parameter:")
+        print("    metric_name          : " + str(TESTSUITE_CONF[SUITE]['Program']['count_metric']['metric_name']))
+        print("    start_time          : " + str(TESTSUITE_CONF[SUITE]['Program']['count_metric']['start_time']))
+        print("    end_time          : " + str(TESTSUITE_CONF[SUITE]['Program']['count_metric']['end_time']))
+
+        count_metric = CountMetric(INFLUX_URL, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE,
+                                   TESTSUITE_CONF[SUITE]['Program']['count_metric']['start_time'],
+                                   TESTSUITE_CONF[SUITE]['Program']['count_metric']['end_time'],
+                                   TESTSUITE_CONF[SUITE]['Program']['count_metric']['metric_name'],
+                                   MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                   MARIADB_DATABASE, TEST_CASE_ID)
+
+        if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
+            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+            db_saver.close_testCase(db, TEST_CASE_ID)
+            db.close()
+
+
+

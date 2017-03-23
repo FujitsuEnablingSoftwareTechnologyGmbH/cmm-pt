@@ -140,9 +140,9 @@ TestSuite3:
 
         log_throughput:
           - LOG_EVERY_N: 1000
-            runtime: 10
+            runtime: 60
             ticker: 10
-            num_stop: 10
+            num_stop: 4
             search_field: application_type
             search_string:
                 - systemtest
@@ -152,7 +152,7 @@ TestSuite3:
            log_api_type: bulk
            num_of_logs_in_one_bulk: 125
            log_size: 200
-           runtime:  10
+           runtime:  60
            frequency: 8
            log_level: NONE
            dimension:
@@ -211,37 +211,66 @@ TestSuite4a:
              - key: hostname
                value: systemtestWARNING
        
-TestSuite4: 
+TestSuite5:
      Program:
-        alarm_on_log:
-            runtime : 300
-            alarm_conf:
-            - severity: error
-              number_of_alarm_def: 2
-              alarms_per_alarm_definition: 1
-            - severity: warning
-              number_of_alarm_def: 2
-              alarms_per_alarm_definition: 2
         log_send:
          - num_threads: 1
            log_every_n: 1000
            log_api_type: bulk
            num_of_logs_in_one_bulk: 125
            log_size: 200
-           runtime:  300
+           runtime:  10
            frequency: 8
            log_level: INFO
            dimension:
            - key: hostname
-             value: alarmLog   
+             value: systemtest
+
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 10
+            ticker: 10
+            num_stop: 10
+            search_field: application_type
+            search_string:
+                - systemtest
+
+        log_latency:
+          - num_threads: 1
+            log_api_type: bulk
+            num_of_logs_in_one_bulk: 125
+            log_size: 200
+            runtime:  10
+            ticker:  5
+
         metric_send:
          - num_threads: 1
            num_metrics_per_request: 100
            LOG_EVERY_N: 1000
-           runtime: 300
-           frequency: 10 
+           runtime: 10
+           frequency: 10
            metric_name: systemtest
            metric_dimension:
             - key: hostname
-              value: alarmMertic  
+              value: systemtest
+        metric_throughput:
+         - runtime: 10
+           metric_name: systemtest
+           ticker: 10
+           ticker_to_stop: 10
+           metric_dimensions:
+            - key: hostname
+              value: systemtest
+
+        metric_latency:
+         - runtime: 10
+           check_frequency: 1
+           send_frequency: 10
+           timeout: 30
+
+        count_metric:
+            metric_name: mem.total_mb
+            start_time: 2017-3-18 18:19:30
+            end_time: 2017-3-21 18:19:30
+
 
