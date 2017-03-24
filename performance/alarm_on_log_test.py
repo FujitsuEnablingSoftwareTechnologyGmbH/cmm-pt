@@ -223,12 +223,21 @@ class AOLTest(threading.Thread):
     def save_result_to_db(self):
         alarm_list = self.create_all_alarm_instance()
         test_results = list()
+
         for alarm in alarm_list:
             print alarm.alarm_name
             for latency in alarm.get_alarm_latency(self.log_send_time_list):
                 print latency.total_seconds()
                 test_results.append(['latency',
                                      str(latency.total_seconds()), datetime.datetime.now().replace(microsecond=0)])
+        min_latency = min(res[1] for res in test_results)
+        max_latency = max(res[1] for res in test_results)
+        test_results.append(['percentile_latency', numpy.percentile([float(res[1]) for res in test_results], 90),
+                             datetime.datetime.now().replace(microsecond=0)])
+        test_results.append(['min_latency', str(min_latency), datetime.datetime.now().replace(microsecond=0)])
+        test_results.append(['max_latency', str(max_latency), datetime.datetime.now().replace(microsecond=0)])
+
+
         db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                              self.mariadb_password, self.mariadb_database)
         db_saver.save_test_results(db, self.testID, test_results)
@@ -254,7 +263,6 @@ class AOLTest(threading.Thread):
                                              'min': min(latency_list),
                                              'max': max(latency_list),
                                              'percentile': numpy.percentile(latency_list, 90)})
-
 
     def create_all_alarm_instance(self):
         alarms = []
