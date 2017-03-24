@@ -23,7 +23,7 @@ All public variables are described in basic_configuration.yaml and test_configur
 import argparse
 import datetime
 import logging
-#import MySQLdb
+import MySQLdb
 import sys
 import threading
 import time
