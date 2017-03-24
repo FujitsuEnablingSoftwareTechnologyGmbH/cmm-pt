@@ -23,7 +23,7 @@ All public variables are described in basic_configuration.yaml and test_configur
 import argparse
 import datetime
 import logging
-import MySQLdb
+#import MySQLdb
 import sys
 import threading
 import time
@@ -197,7 +197,11 @@ class LogagentWrite(threading.Thread):
 
         for i in range(self.outp_count):
             q = Queue()
-            out_file = self.outp_file.split('.')[0] + str(i) + "." + self.outp_file.split('.')[1]
+            if i == 0:
+                out_file = self.outp_file
+            else:
+                out_file = self.outp_file.split('.')[0] + str(i) + "." + self.outp_file.split('.')[1]
+                
             for input_file in self.inp_files:
                 message = self.get_message_from_input_file(self.inp_file_dir + input_file['name'])
                 t = LogGenerator(self.runtime, message, input_file['frequency'], input_file['name'], out_file,
