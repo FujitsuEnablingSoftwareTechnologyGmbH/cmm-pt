@@ -16,6 +16,7 @@ import argparse
 import MySQLdb
 import yaml
 from urlparse import urlparse
+from datetime import datetime, timedelta
 import db_saver
 from alarm_on_log_test import AOLTest
 from count_metric import CountMetric
@@ -32,7 +33,7 @@ from metric_throughput import MetricThroughput
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-suite', action='store', dest='suite')
-    # todo  parser.add_argument('-config_file', asction='store', dest='')
+    parser.add_argument('-config_file', action='store', dest='conf_file')
     return parser.parse_args()
 
 
@@ -58,9 +59,13 @@ TEST_CASE_ID = 1
 TEST_NAME = 'log_metric_test_launch'
 program_argument = create_program_argument_parser()
 SUITE = program_argument.suite
+CONF_FILE = program_argument.conf_file
 DELAY = 10
 
-TESTSUITE_CONF = yaml.load(file('./launch_configuration1.yaml'), Loader=yaml.Loader)
+if CONF_FILE == "":
+    TESTSUITE_CONF = yaml.load(file('./launch_configuration1.yaml'), Loader=yaml.Loader)
+else:
+    TESTSUITE_CONF = yaml.load(file('./' + CONF_FILE), Loader=yaml.Loader)
 
 if __name__ == "__main__":
 
@@ -533,7 +538,11 @@ if __name__ == "__main__":
             db_saver.close_testCase(db, TEST_CASE_ID)
             db.close()
 
-    if SUITE == 'TestSuite5':
+    if SUITE == 'TestSuite6':
+        # TODO: TestSuite5 (Stress test)
+        print 'TODO'
+
+    if SUITE == 'TestSuite6':
         if MARIADB_STATUS == 'enabled':
             if ((MARIADB_HOSTNAME is not None) and
                     (MARIADB_USERNAME is not None) and
@@ -544,6 +553,10 @@ if __name__ == "__main__":
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'
                 exit()
 
+        test_suite_start_time = datetime.now().replace(microsecond=0)
+        test_suite_end_time = test_suite_start_time +\
+            timedelta(seconds=int(TESTSUITE_CONF[SUITE]['Program']['log_send']['runtime']))
+        count_script_metric_name = TESTSUITE_CONF[SUITE]['Program']['metric_send']['metric_name']
         program_list = []
         for i in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
             print("LogThroughput:, parameter:")
@@ -612,7 +625,7 @@ if __name__ == "__main__":
             program_list.append(metric_send)
 
         for i in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
-            print("MetricLAtency:, parameter:")
+            print("MetricLatency:, parameter:")
             print("    runtime          : " + str(i['runtime']))
             print("    check_frequency           : " + str(i['check_frequency']))
             print("    send_frequency   : " + str(i['send_frequency']))
@@ -627,16 +640,13 @@ if __name__ == "__main__":
         for program in program_list:
             program.join()
 
-        TESTSUITE_CONF[SUITE]['Program']['count_metric']
-        print("ContMretic, parameter:")
-        print("    metric_name          : " + str(TESTSUITE_CONF[SUITE]['Program']['count_metric']['metric_name']))
-        print("    start_time          : " + str(TESTSUITE_CONF[SUITE]['Program']['count_metric']['start_time']))
-        print("    end_time          : " + str(TESTSUITE_CONF[SUITE]['Program']['count_metric']['end_time']))
+        print("CountMetric, parameter:")
+        print("    metric_name          : " + count_script_metric_name)
+        print("    start_time          : " + test_suite_start_time)
+        print("    end_time          : " + test_suite_end_time)
 
         count_metric = CountMetric(INFLUX_URL, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE,
-                                   TESTSUITE_CONF[SUITE]['Program']['count_metric']['start_time'],
-                                   TESTSUITE_CONF[SUITE]['Program']['count_metric']['end_time'],
-                                   TESTSUITE_CONF[SUITE]['Program']['count_metric']['metric_name'],
+                                   test_suite_start_time, test_suite_end_time, count_script_metric_name,
                                    MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
                                    MARIADB_DATABASE, TEST_CASE_ID)
 

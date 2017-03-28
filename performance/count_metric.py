@@ -28,10 +28,10 @@ TEST_NAME = 'count_metric'
 
 
 class CountMetric:
-    def __init__(self, influx_address, influx_user, influx_password, influx_database, start_time, end_time,
+    def __init__(self, influx_url, influx_user, influx_password, influx_database, start_time, end_time,
                  metric_name, mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
                  mariadb_database=None, test_case_id=1):
-        self.influx_Client = InfluxDBClient(influx_address.split(':')[0], influx_address.split(':')[1],
+        self.influx_Client = InfluxDBClient(influx_url.split(':')[0], influx_url.split(':')[1],
                                             influx_user, influx_password, influx_database)
         self.start_time = start_time
         self.end_time = end_time
@@ -84,7 +84,6 @@ class CountMetric:
             count += res
         self.write_result(count)
 
-
     def parse_query_response(self, response):
         if len(list(response)) is 0:
             return 0
@@ -131,11 +130,11 @@ if __name__ == "__main__":
             if BASIC_CONF['mariadb']['password'] is not None else ''
         MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
         MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
-        INFLUX_ADDRESS = BASIC_CONF['url']['influxdb']
+        INFLUX_URL = BASIC_CONF['url']['influxdb']
         INFLUX_USER = BASIC_CONF['influxdb']['user']
         INFLUX_PASSWORD = BASIC_CONF['influxdb']['password']
         INFLUX_DATABASE = BASIC_CONF['influxdb']['database']
-        STAT_TIME = TEST_CONF[TEST_NAME]['start_time']
+        START_TIME = TEST_CONF[TEST_NAME]['start_time']
         END_TIME = TEST_CONF[TEST_NAME]['end_time']
         METRIC_NAME = TEST_CONF[TEST_NAME]['metric_name']
     else:
@@ -149,12 +148,11 @@ if __name__ == "__main__":
         INFLUX_USER = program_argument.influx_usr
         INFLUX_PASSWORD = program_argument.influx_password
         INFLUX_DATABASE = program_argument.influx_database
-        STAT_TIME = program_argument.star_time
+        START_TIME = program_argument.start_time
         END_TIME = program_argument.end_time
         METRIC_NAME = program_argument.metric_name
 
-    count_metric = CountMetric(INFLUX_ADDRESS, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE, STAT_TIME, END_TIME,
+    count_metric = CountMetric(INFLUX_URL, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE, START_TIME, END_TIME,
                                METRIC_NAME, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
                                MARIADB_DATABASE)
     count_metric.count_metric()
-
