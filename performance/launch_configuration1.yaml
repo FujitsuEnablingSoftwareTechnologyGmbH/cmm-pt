@@ -211,7 +211,7 @@ TestSuite4a:
              - key: hostname
                value: systemtestWARNING
        
-TestSuite5:
+TestSuite6:
      Program:
         log_send:
          - num_threads: 1
@@ -267,10 +267,5 @@ TestSuite5:
            check_frequency: 1
            send_frequency: 10
            timeout: 30
-
-        count_metric:
-            metric_name: mem.total_mb
-            start_time: 2017-3-18 18:19:30
-            end_time: 2017-3-21 18:19:30
 
 
