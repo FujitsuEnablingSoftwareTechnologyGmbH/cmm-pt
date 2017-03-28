@@ -538,7 +538,7 @@ if __name__ == "__main__":
             db_saver.close_testCase(db, TEST_CASE_ID)
             db.close()
 
-    if SUITE == 'TestSuite6':
+    if SUITE == 'TestSuite5':
         # TODO: TestSuite5 (Stress test)
         print 'TODO'
 
