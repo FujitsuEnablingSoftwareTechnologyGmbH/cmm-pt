@@ -62,10 +62,11 @@ SUITE = program_argument.suite
 CONF_FILE = program_argument.conf_file
 DELAY = 10
 
-if CONF_FILE == "":
-    TESTSUITE_CONF = yaml.load(file('./launch_configuration1.yaml'), Loader=yaml.Loader)
-else:
+if CONF_FILE:
     TESTSUITE_CONF = yaml.load(file('./' + CONF_FILE), Loader=yaml.Loader)
+else:
+    TESTSUITE_CONF = yaml.load(file('./launch_configuration1.yaml'), Loader=yaml.Loader)
+
 
 if __name__ == "__main__":
 
@@ -553,9 +554,7 @@ if __name__ == "__main__":
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'
                 exit()
 
-        test_suite_start_time = datetime.now().replace(microsecond=0)
-        test_suite_end_time = test_suite_start_time +\
-            timedelta(seconds=int(TESTSUITE_CONF[SUITE]['Program']['log_send']['runtime']))
+        test_suite_start_time = datetime.utcnow().replace(microsecond=0)
         count_script_metric_name = TESTSUITE_CONF[SUITE]['Program']['metric_send']['metric_name']
         program_list = []
         for i in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
@@ -639,7 +638,7 @@ if __name__ == "__main__":
 
         for program in program_list:
             program.join()
-
+        test_suite_end_time = datetime.utcnow().replace(microsecond=0)
         print("CountMetric, parameter:")
         print("    metric_name          : " + count_script_metric_name)
         print("    start_time          : " + test_suite_start_time)
