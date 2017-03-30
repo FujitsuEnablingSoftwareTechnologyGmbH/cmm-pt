@@ -82,8 +82,7 @@ class TokenHandler:
 
         ks_client = ksclient.KSClient(**keystone)
         convert_time = ciso8601.parse_datetime(str(ks_client._keystone.auth_ref.expires))
-        tmp_str = str(convert_time).split('.')
-        token_exp = time.mktime(time.strptime(tmp_str[0], '%Y-%m-%d %H:%M:%S'))
+        token_exp = time.mktime(convert_time.timetuple())
         factor = self.__correct_token_time()
 
         print ("Get new Token:                                      {}".format(ks_client.token))
