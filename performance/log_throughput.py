@@ -22,7 +22,7 @@ The logfile written contains this information.
 """
 
 import argparse
-import datetime
+from datetime import datetime
 import MySQLdb
 import time
 import threading
@@ -90,7 +90,7 @@ class LogThroughput(threading.Thread):
         log_check_count = 0
         number_of_log_check_with_the_same_log_number = 0
         test_start_time = time.time()
-        start_time = datetime.datetime.now().replace(microsecond=0)
+        start_time = datetime.utcnow().replace(microsecond=0)
         initial_number_of_log_list = [0] * len(self.search_string_list)
         different_log_entries_list = [0] * len(self.search_string_list)
 
@@ -127,11 +127,11 @@ class LogThroughput(threading.Thread):
             time.sleep(self.ticker - ((time.time() - log_check_time) % self.ticker))
         test_end_time = time.time()
         print("-----Test Results----- :" + TEST_NAME)
-        print("End Time: ", datetime.datetime.now().strftime("%H:%M:%S.%f"))
+        print("End Time: ", datetime.now().strftime("%H:%M:%S.%f"))
         if self.mariadb_status == 'enabled':
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
-            end_time = datetime.datetime.now().replace(microsecond=0)
+            end_time = datetime.utcnow().replace(microsecond=0)
             db_saver.save_test_results(db, self.testID, testresults)
             db.close
         for index, search_string in enumerate(self.search_string_list):
@@ -160,7 +160,7 @@ class LogThroughput(threading.Thread):
         serialize_logging(self.result_file, my_logger)
         if self.mariadb_status == 'enabled':
             return ["throughput", round((num_entries_list[index] / duration_secs), 2),
-                    datetime.datetime.now().replace(microsecond=0)]
+                    datetime.utcnow().replace(microsecond=0)]
 
     def create_result_file(self):
         """create result file and save header line to this file """
@@ -220,7 +220,7 @@ if __name__ == "__main__":
         SEARCH_STRING_LIST = program_argument.search_string
         SEARCH_FIELD = program_argument.search_field
         NUM_TO_STOP = program_argument.num_stop
-    print("Start Time: {} ".format(datetime.datetime.now().strftime("%H:%M:%S.%f")))
+    print("Start Time: {} ".format(datetime.now().strftime("%H:%M:%S.%f")))
 
     log_throughput = LogThroughput(TENANT_PROJECT, ELASTIC_URL, RUNTIME, TICKER, SEARCH_STRING_LIST, SEARCH_FIELD,
                                    NUM_TO_STOP, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,

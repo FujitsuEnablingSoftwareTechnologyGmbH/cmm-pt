@@ -20,7 +20,7 @@ All test result are writen to the file.
 """
 
 import argparse
-import datetime
+from datetime import datetime
 import MySQLdb
 import sys
 import time
@@ -81,18 +81,18 @@ class MetricThroughput(threading.Thread):
         dimensions = []
         for dimension in self.metric_dimensions:
             dimensions.append("{} = \'{}\'".format(dimension['key'], dimension['value']))
-        current_utc_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        current_utc_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         return "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
             .format(self.metric_name, current_utc_time, " AND ".join(dimensions))
 
     def write_result_to_file(self, metric_difference, total_metric, metric_per_sec):
-        current_time = datetime.datetime.now().strftime("%H:%M:%S.%f")
+        current_time = datetime.now().strftime("%H:%M:%S.%f")
         print("Time: {}; count: {} = {} per second".format(current_time, total_metric, metric_per_sec))
         serialize_logging(self.results_file, str(current_time) + ',' + str(total_metric) +
                           ',' + str(metric_difference) + ',' + str(metric_per_sec))
         if self.mariadb_status == 'enabled':
             return ["throughput", metric_per_sec,
-                    datetime.datetime.now().replace(microsecond=0)]
+                    datetime.utcnow().replace(microsecond=0)]
 
     def write_final_result_line_to_file(self, total_number_of_metric):
         result_line = "Metric received: {}".format(total_number_of_metric)
@@ -114,7 +114,7 @@ class MetricThroughput(threading.Thread):
     def run(self):
 
         query = self.create_query()
-        strt_time = datetime.datetime.now().replace(microsecond=0)
+        strt_time = datetime.utcnow().replace(microsecond=0)
         client = InfluxDBClient(self.influx_ip, self.influx_port, self.influx_user, self.influx_password,
                                 self.influx_database)
         count = 0
@@ -159,7 +159,7 @@ class MetricThroughput(threading.Thread):
         self.write_final_result_line_to_file(count)
         if self.mariadb_status == 'enabled':
             self.test_params = [['start_time', str(strt_time)],
-                                ['end_time', str(datetime.datetime.now().replace(microsecond=0))],
+                                ['end_time', str(datetime.utcnow().replace(microsecond=0))],
                                 ['metric_name', str(self.metric_name)],
                                 ['runtime', str(self.runtime)],
                                 ['total_metrics', str(int(count))]]

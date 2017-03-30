@@ -12,7 +12,7 @@
 # the License.
 #
 import argparse
-import datetime
+from datetime import datetime
 import httplib
 import numpy
 import MySQLdb
@@ -95,7 +95,7 @@ class Alarm:
         alarm_occur_timestamp = [alarm_state_history['timestamp'] for alarm_state_history in
                                  alarms_state_history['elements']
                                  if alarm_state_history['new_state'] == 'ALARM']
-        alarm_occur_time_list = [datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+        alarm_occur_time_list = [datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
                                  for timestamp in alarm_occur_timestamp]
         alarm_name = alarms_state_history['elements'][0]['metrics'][0]['dimensions']['service']
         return alarm_occur_time_list, alarm_name
@@ -140,7 +140,7 @@ class AOLTest(threading.Thread):
                     number_of_alarm_def += alarm_def_conf['number_of_alarm_def']
                     total_number_of_alarms +=\
                         alarm_def_conf['number_of_alarm_def']*alarm_def_conf['alarms_per_alarm_definition']
-                test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
+                test_params = [['start_time', str(datetime.utcnow().replace(microsecond=0))],
                                ['runtime', str(self.runtime)],
                                ['number_of_alarm_definitions', str(number_of_alarm_def)],
                                ['total_number_of_alarms', str(total_number_of_alarms)]]
@@ -196,7 +196,7 @@ class AOLTest(threading.Thread):
                 log_list.append({'message': msg, 'dimensions': dimension})
         body = simplejson.dumps({'logs': log_list})
         log_api_conn.request("POST", self.log_api_url.path, body, header)
-        send_time = datetime.datetime.utcnow()
+        send_time = datetime.utcnow()
         res = log_api_conn.getresponse()
         if res.status is not 204:
             print ('FAILED TO SEND BULK')
@@ -229,14 +229,13 @@ class AOLTest(threading.Thread):
             for latency in alarm.get_alarm_latency(self.log_send_time_list):
                 print latency.total_seconds()
                 test_results.append(['latency',
-                                     str(latency.total_seconds()), datetime.datetime.now().replace(microsecond=0)])
+                                     str(latency.total_seconds()), datetime.utcnow().replace(microsecond=0)])
         min_latency = min(res[1] for res in test_results)
         max_latency = max(res[1] for res in test_results)
         test_results.append(['percentile_latency', numpy.percentile([float(res[1]) for res in test_results], 90),
-                             datetime.datetime.now().replace(microsecond=0)])
-        test_results.append(['min_latency', str(min_latency), datetime.datetime.now().replace(microsecond=0)])
-        test_results.append(['max_latency', str(max_latency), datetime.datetime.now().replace(microsecond=0)])
-
+                             datetime.utcnow().replace(microsecond=0)])
+        test_results.append(['min_latency', str(min_latency), datetime.utcnow().replace(microsecond=0)])
+        test_results.append(['max_latency', str(max_latency), datetime.utcnow().replace(microsecond=0)])
 
         db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                              self.mariadb_password, self.mariadb_database)

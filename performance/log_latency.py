@@ -21,7 +21,7 @@ The public variables are described in basic_configuration.yaml and test_configur
 """
 
 import argparse
-import datetime
+from datetime import datetime
 import httplib
 import MySQLdb
 import random
@@ -154,9 +154,9 @@ class LogLatency(threading.Thread):
         test_results = list()
         thread_name = threading.currentThread().getName()
         latency_check_count = 0
-        print("{}: Start Time: {} ".format(thread_name, datetime.datetime.now().strftime("%H:%M:%S.%f")))
+        print("{}: Start Time: {} ".format(thread_name, datetime.utcnow().strftime("%H:%M:%S.%f")))
         start_time = time.time()
-        strt_time = datetime.datetime.now().replace(microsecond=0)
+        strt_time = datetime.utcnow().replace(microsecond=0)
         while time.time() < (start_time + self.runtime):
             check_start_time = time.time()
             send_status, search_status = self.check_latency(self.generate_unique_message())
@@ -177,13 +177,13 @@ class LogLatency(threading.Thread):
             db.close()
         final_time = time.time()
         print("-----Test Results-----")
-        print("{}: End Time: {}".format(thread_name, thread_name, datetime.datetime.now().strftime("%H:%M:%S.%f")))
+        print("{}: End Time: {}".format(thread_name, thread_name, datetime.utcnow().strftime("%H:%M:%S.%f")))
         if self.mariadb_status == 'enabled':
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
             test_params = [['log_api_type', str(self.log_api_type)],
                            ['start_time', str(strt_time)],
-                           ['end_time', str(datetime.datetime.now().replace(microsecond=0))],
+                           ['end_time', str(datetime.utcnow().replace(microsecond=0))],
                            ['runtime', str(self.runtime)],
                            ['log_size', str(self.log_size)]]
             db_saver.save_test_params(db, self.testID, test_params)
@@ -198,18 +198,18 @@ class LogLatency(threading.Thread):
         if send_status == 204:
             if search_status == 'OK':
                 print("{} Time: {}, Send and search injector log OK in: {} seconds!"
-                      .format(name, datetime.datetime.now().strftime("%H:%M:%S.%f"), latency))
+                      .format(name, datetime.now().strftime("%H:%M:%S.%f"), latency))
             else:
                 print("{} Time: {}, Send injector log OK but search failed in: {} seconds!"
-                      .format(name, datetime.datetime.now().strftime("%H:%M:%S.%f"), latency))
+                      .format(name, datetime.now().strftime("%H:%M:%S.%f"), latency))
             result_line = "{}, {}, OK, {}, {}, {}, {}"\
                 .format(name, count, search_status, convert_epoch(start_time), convert_epoch(end_time), latency, count)
             serialize_logging(self.result_file, result_line)
         else:
             print("{} Time: {}, Send Injector log Failed after: {}"
-                  .format(name, datetime.datetime.now().strftime("%H:%M:%S.%f"), latency)+" seconds!")
+                  .format(name, datetime.now().strftime("%H:%M:%S.%f"), latency)+" seconds!")
         if self.mariadb_status == 'enabled':
-            return ["latency", str(latency), datetime.datetime.now().replace(microsecond=0)]
+            return ["latency", str(latency), datetime.utcnow().replace(microsecond=0)]
 
     def create_result_file(self):
         """create file for result then write header line to this file """

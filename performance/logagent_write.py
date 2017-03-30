@@ -21,7 +21,7 @@ The public variables are described in common.yaml file.
 All public variables are described in basic_configuration.yaml and test_configuration.yaml files
 """
 import argparse
-import datetime
+from datetime import datetime
 import logging
 import MySQLdb
 import sys
@@ -65,7 +65,7 @@ class LogWriter(threading.Thread):
     def run(self):
         """check if queue is not empty, if find any message then write this message to the log file """
         start_time = time.time()
-        pstart_time = datetime.datetime.now().strftime("%H:%M:%S.%f")
+        pstart_time = datetime.now().strftime("%H:%M:%S.%f")
         interim_time_beg = time.time()
         logger = self.get_logger_configuration()
 
@@ -100,7 +100,7 @@ class LogWriter(threading.Thread):
             self.total_log_wrote_freq = round((self.total_log_wrote / write_end_time), 2)
             print("-----Test Results----- :" + TEST_NAME)
             print("Start Time: ", pstart_time)
-            print("End Time: ", datetime.datetime.now().strftime("%H:%M:%S.%f"))
+            print("End Time: ", datetime.now().strftime("%H:%M:%S.%f"))
             print("{} log entries in {} seconds".format(self.total_log_wrote, write_end_time))
             print("{} per second".format(round(self.total_log_wrote / write_end_time), 2))
 
@@ -179,7 +179,7 @@ class LogagentWrite(threading.Thread):
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
                 self.test_params = list()
-                self.test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
+                self.test_params = [['start_time', str(datetime.utcnow().replace(microsecond=0))],
                                     ['runtime', str(self.runtime)],
                                     ['output_count', str(self.outp_count)]]
                 for counter, inp in enumerate(self.inp_files):
@@ -223,7 +223,7 @@ class LogagentWrite(threading.Thread):
         self.result_file.write("Total logs wrote ={}".format(total_log_count))
         self.result_file.close()
         tmp_list.append(['total_logs', str(total_log_count)])
-        tmp_list.append(['end_time', datetime.datetime.now().replace(microsecond=0)])
+        tmp_list.append(['end_time', datetime.utcnow().replace(microsecond=0)])
         if self.mariadb_status == 'enabled':
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)

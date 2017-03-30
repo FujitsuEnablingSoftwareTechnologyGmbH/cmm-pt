@@ -22,7 +22,7 @@ All public variables are described in basic_configuration.yaml and test_configur
 passed as program parameters"""
 
 import argparse
-import datetime
+from datetime import datetime
 import httplib
 import MySQLdb
 import random
@@ -113,7 +113,7 @@ class MetricSend(threading.Thread):
     def run_metric_test(self, process_id, num_of_sent_metric_queue, result_file):
         print process_id
         start_time = time.time()
-        strt_time = datetime.datetime.now().replace(microsecond=0)
+        strt_time = datetime.utcnow().replace(microsecond=0)
         count_metric_request_sent = 0
         time_before_logging = start_time
         url_parse = urlparse(self.metric_api_url)
@@ -143,7 +143,7 @@ class MetricSend(threading.Thread):
 
                 print "Failed to send metric. Error code: " + str(request_status)
         stop_time = time.time()
-        stp_time = datetime.datetime.now().replace(microsecond=0)
+        stp_time = datetime.utcnow().replace(microsecond=0)
         total_metric_send = count_metric_request_sent * self.num_metric_per_request
         test_duration = stop_time - start_time
         metric_send_per_sec = total_metric_send / test_duration

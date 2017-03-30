@@ -16,7 +16,7 @@
 This program count number of metric specified by name in influx database in specified time-frame
 """
 import argparse
-import datetime
+from datetime import datetime, timedelta
 import MySQLdb
 import sys
 import yaml
@@ -64,7 +64,7 @@ class CountMetric:
         time_range = list()
         start_time = self.start_time
         while start_time < self.end_time:
-            end_time = start_time + datetime.timedelta(hours=2)
+            end_time = start_time + timedelta(hours=2)
             if end_time > self.end_time:
                 time_range.append({'start': start_time, 'end': self.end_time})
             else:
@@ -98,7 +98,7 @@ class CountMetric:
         if self.mariadb_status == 'enabled':
             db_connection = self.create_mariadb_connection()
             db_saver.save_test_results(db_connection, self.testID, [['metric_count', metric_count,
-                                                                     datetime.datetime.now().replace(microsecond=0)]])
+                                                                     datetime.utcnow().replace(microsecond=0)]])
             db_connection.close()
 
 

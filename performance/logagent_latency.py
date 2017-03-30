@@ -19,7 +19,7 @@ entry from the Elasticsearch API.
 The time it takes from write  until retrieving the same entry via the Elasticsearch API is measured.
 """
 import argparse
-import datetime
+from datetime import datetime
 import logging
 import MySQLdb
 import search_logs
@@ -84,14 +84,14 @@ class LatencyTest(threading.Thread):
                 print 'COUNT: {} | FILE: {} | TIME: {} | Log Found. Latency = {} s'.\
                     format(count, self.log_file, time.strftime('%H:%M:%S ', time.localtime()), latency_time)
                 test_latencies.append(['latency'+str(self.file_number), str(latency_time),
-                                       datetime.datetime.fromtimestamp(write_log_time).replace(microsecond=0)])
+                                       datetime.fromtimestamp(write_log_time).replace(microsecond=0)])
                 self.write_latency_result(write_log_time, search_status, latency_time)
             else:
                 print 'COUNT :{} | FILE: {} | TIME: {} | Failed to find log in {} s'. \
                     format(count,  self.log_file, time.strftime('%H:%M:%S ', time.localtime()), self.check_timeout)
                 self.write_latency_result(write_log_time, search_status, '__')
                 test_latencies.append(['latency'+str(self.file_number), '-',
-                                       datetime.datetime.fromtimestamp(write_log_time).replace(microsecond=0)])
+                                       datetime.fromtimestamp(write_log_time).replace(microsecond=0)])
             time.sleep(self.check_ticker)
         if self.mariadb_status == 'enabled':
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
@@ -174,7 +174,7 @@ class LogagentLatency(threading.Thread):
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
-                test_params = [['start_time', str(datetime.datetime.now().replace(microsecond=0))],
+                test_params = [['start_time', str(datetime.utcnow().replace(microsecond=0))],
                                ['runtime', str(self.runtime)],
                                ['check_ticker', str(self.check_ticker)],
                                ['search_ticker', str(self.search_ticker)]]

@@ -108,7 +108,7 @@ class MetricLatency(threading.Thread):
             write_line_to_file(self.result_file,
                                "{},{},{},{}".format(start_time_str, check_status, "---", "< " + str(self.timeout)))
         if self.mariadb_status == 'enabled':
-            return ["latency", str(latency), datetime.now().replace(microsecond=0)]
+            return ["latency", str(latency), datetime.utcnow().replace(microsecond=0)]
 
     def get_request_header(self):
         """ return header for request"""
@@ -160,7 +160,7 @@ class MetricLatency(threading.Thread):
     def run(self):
         self.writ_header_to_result_file()
         test_start_time = time.time()
-        start_time = datetime.now().replace(microsecond=0)
+        start_time = datetime.utcnow().replace(microsecond=0)
         while time.time() < (test_start_time + self.runtime):
             metric_timestamp_milliseconds = int((round(time.time() * 1000)))
             send_status = self.send_metric(metric_timestamp_milliseconds)
@@ -182,7 +182,7 @@ class MetricLatency(threading.Thread):
                                  self.mariadb_password, self.mariadb_database)
             db_saver.save_test_results(db, self.testID, self.test_results)
             test_params = [['start_time', str(start_time)],
-                           ['end_time', str(datetime.now().replace(microsecond=0))]]
+                           ['end_time', str(datetime.utcnow().replace(microsecond=0))]]
             db_saver.save_test_params(db, self.testID, test_params)
             db.close()
 

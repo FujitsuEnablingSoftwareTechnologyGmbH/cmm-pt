@@ -20,7 +20,7 @@ can be passed as program arguments.
 """
 
 import argparse
-import datetime
+from datetime import datetime
 import httplib
 import MySQLdb
 import random
@@ -101,7 +101,7 @@ class LogSend(threading.Thread):
             return ''.join((random.choice(letters + ' ') for _ in range(size)))
 
         letters = string.ascii_lowercase
-        basic_msg = "{} {} Count={} ".format(datetime.datetime.now().strftime("%H:%M:%S.%f"), self.log_level, str(count))
+        basic_msg = "{} {} Count={} ".format(datetime.now().strftime("%H:%M:%S.%f"), self.log_level, str(count))
         if size > len(basic_msg):
             message = rand(size - len(basic_msg))
             gen_mes = ("".join(message))
@@ -190,7 +190,7 @@ class LogSend(threading.Thread):
         test_duration = end_time - start_time
         log_send_per_sec = total_number_of_sent_logs / test_duration
         print("-----Test Results-----test_name")
-        print(thread_name+": End Time: ", datetime.datetime.now().strftime("%H:%M:%S.%f"))
+        print(thread_name+": End Time: ", datetime.now().strftime("%H:%M:%S.%f"))
         print(thread_name+": {} log entries in {} seconds".format(total_number_of_sent_logs, test_duration))
         print(thread_name+": {} per second".format(round(total_number_of_sent_logs / test_duration), 2))
         write_line_to_file(self.result_file, "{} , {} , {} , {} , {}, {}".
@@ -199,8 +199,8 @@ class LogSend(threading.Thread):
                                   "{0:.2f}".format(test_duration), "{0:.2f}".format(log_send_per_sec)))
         if self.mariadb_status == 'enabled':
             self.test_params = [['total_number_of_sent_logs', str(total_number_of_sent_logs)],
-                                ['start_time', str(datetime.datetime.fromtimestamp(start_time).replace(microsecond=0))],
-                                ['end_time', str(datetime.datetime.fromtimestamp(end_time).replace(microsecond=0))],
+                                ['start_time', str(datetime.fromtimestamp(start_time).replace(microsecond=0))],
+                                ['end_time', str(datetime.fromtimestamp(end_time).replace(microsecond=0))],
                                 ['runtime', str(self.runtime)],
                                 ['average_per_second', str(log_send_per_sec)],
                                 ['log_level', str(self.log_level)],
