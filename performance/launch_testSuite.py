@@ -555,7 +555,7 @@ if __name__ == "__main__":
                 exit()
 
         test_suite_start_time = datetime.utcnow().replace(microsecond=0)
-        count_script_metric_name = TESTSUITE_CONF[SUITE]['Program']['metric_send']['metric_name']
+        count_script_metric_name = list()
         program_list = []
         for i in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
             print("LogThroughput:, parameter:")
@@ -620,6 +620,7 @@ if __name__ == "__main__":
                                      i['LOG_EVERY_N'], i['runtime'], i['frequency'], i['metric_name'],
                                      i['metric_dimension'], DELAY, MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD,
                                      MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            count_script_metric_name.append(i['metric_name'])
             metric_send.start()
             program_list.append(metric_send)
 
@@ -639,15 +640,17 @@ if __name__ == "__main__":
         for program in program_list:
             program.join()
         test_suite_end_time = datetime.utcnow().replace(microsecond=0)
-        print("CountMetric, parameter:")
-        print("    metric_name          : " + count_script_metric_name)
-        print("    start_time          : " + test_suite_start_time)
-        print("    end_time          : " + test_suite_end_time)
+        for metric_name in count_script_metric_name:
+            print("CountMetric, parameter:")
+            print("    metric_name          : " + metric_name)
+            print("    start_time          : " + str(test_suite_start_time))
+            print("    end_time          : " + str(test_suite_end_time))
 
-        count_metric = CountMetric(INFLUX_URL, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE,
-                                   test_suite_start_time, test_suite_end_time, count_script_metric_name,
-                                   MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                   MARIADB_DATABASE, TEST_CASE_ID)
+            count_metric = CountMetric(INFLUX_URL, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE,
+                                       test_suite_start_time, test_suite_end_time, metric_name,
+                                       MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                       MARIADB_DATABASE, TEST_CASE_ID)
+            count_metric.count_metric()
 
         if MARIADB_STATUS == 'enabled' and TEST_CASE_ID != 1:
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
