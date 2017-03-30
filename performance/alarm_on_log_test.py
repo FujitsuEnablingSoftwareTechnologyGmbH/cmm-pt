@@ -158,7 +158,7 @@ class AOLTest(threading.Thread):
             self.send_bulk()
             self.wait_util_all_alarm_are_triggered()
             alarm_count += 1
-            while not self.check_if_alarms_status_is_undetermined():
+            while not self.check_if_alarms_status_is_undetermined() and (self.runtime > time.time() - start_time):
                 print "alarm still in alarm state"
                 time.sleep(30)
 
