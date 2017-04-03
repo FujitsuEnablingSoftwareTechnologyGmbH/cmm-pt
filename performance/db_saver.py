@@ -1,7 +1,11 @@
+from datetime import datetime
+
+
 def save_testCase(db, testSuite):
     cursor = db.cursor()
+    start_time = datetime.utcnow().replace(microsecond=0)
     # save test entry
-    sql = " INSERT INTO TestCase (testSuite, startTime) VALUES ('{0}', NOW());".format(testSuite)
+    sql = " INSERT INTO TestCase (testSuite, startTime) VALUES ('{0}', '{1}');".format(testSuite, start_time)
     cursor.execute(sql)
     db.commit()
     return int(cursor.lastrowid)
@@ -9,10 +13,11 @@ def save_testCase(db, testSuite):
 
 def close_testCase(db, testCaseID):
     cursor = db.cursor()
+    end_time = datetime.utcnow().replace(microsecond=0)
     # save test entry
     sql = " Update TestCase " \
-          "set endTime=NOW() " \
-          "where testCaseID={0};".format(testCaseID)
+          "set endTime='{1}' " \
+          "where testCaseID={0};".format(testCaseID, end_time)
     cursor.execute(sql)
     db.commit()
 
