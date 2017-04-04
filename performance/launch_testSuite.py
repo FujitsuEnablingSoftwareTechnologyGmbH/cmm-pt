@@ -184,12 +184,12 @@ if __name__ == "__main__":
         for i in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
             print("MetricSend:, parameter:")
             print("    runtime          : " + str(i['runtime']))
-            print("    check_frequency           : " + str(i['check_frequency']))
-            print("    send_frequency   : " + str(i['send_frequency']))
+            print("    check_ticker           : " + str(i['check_ticker']))
+            print("    send_ticker   : " + str(i['send_ticker']))
             print("    runtime      : " + str(i['timeout']))
             metric_latency = MetricLatency(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                           METRIC_API_URL + "/metrics", i['runtime'], i['check_frequency'],
-                                           i['send_frequency'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
+                                           METRIC_API_URL + "/metrics", i['runtime'], i['check_ticker'],
+                                           i['send_ticker'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
                                            MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             metric_latency.start()
             program_list.append(metric_latency)
@@ -296,12 +296,12 @@ if __name__ == "__main__":
         for i in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
             print("MetricSend:, parameter:")
             print("    runtime          : " + str(i['runtime']))
-            print("    check_frequency           : " + str(i['check_frequency']))
-            print("    send_frequency   : " + str(i['send_frequency']))
+            print("    check_ticker           : " + str(i['check_ticker']))
+            print("    send_ticker   : " + str(i['send_ticker']))
             print("    runtime      : " + str(i['timeout']))
             metric_latency = MetricLatency(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                           METRIC_API_URL + "/metrics", i['runtime'], i['check_frequency'],
-                                           i['send_frequency'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
+                                           METRIC_API_URL + "/metrics", i['runtime'], i['check_ticker'],
+                                           i['send_ticker'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
                                            MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             metric_latency.start()
             program_list.append(metric_latency)
@@ -627,12 +627,12 @@ if __name__ == "__main__":
         for i in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
             print("MetricLatency:, parameter:")
             print("    runtime          : " + str(i['runtime']))
-            print("    check_frequency           : " + str(i['check_frequency']))
-            print("    send_frequency   : " + str(i['send_frequency']))
+            print("    check_ticker           : " + str(i['check_ticker']))
+            print("    send_ticker   : " + str(i['send_ticker']))
             print("    runtime      : " + str(i['timeout']))
             metric_latency = MetricLatency(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                           METRIC_API_URL + "/metrics", i['runtime'], i['check_frequency'],
-                                           i['send_frequency'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
+                                           METRIC_API_URL + "/metrics", i['runtime'], i['check_ticker'],
+                                           i['send_ticker'], i['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
                                            MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
             metric_latency.start()
             program_list.append(metric_latency)
