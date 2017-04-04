@@ -113,7 +113,6 @@ class MetricSend(threading.Thread):
     def run_metric_test(self, process_id, num_of_sent_metric_queue, result_file):
         print process_id
         start_time = time.time()
-        strt_time = datetime.utcnow().replace(microsecond=0)
         count_metric_request_sent = 0
         time_before_logging = start_time
         url_parse = urlparse(self.metric_api_url)
@@ -143,7 +142,6 @@ class MetricSend(threading.Thread):
 
                 print "Failed to send metric. Error code: " + str(request_status)
         stop_time = time.time()
-        stp_time = datetime.utcnow().replace(microsecond=0)
         total_metric_send = count_metric_request_sent * self.num_metric_per_request
         test_duration = stop_time - start_time
         metric_send_per_sec = total_metric_send / test_duration
@@ -151,18 +149,6 @@ class MetricSend(threading.Thread):
                            .format(process_id, time.strftime('%H:%M:%S', time.localtime(start_time)),
                                    time.strftime('%H:%M:%S', time.localtime(stop_time)), total_metric_send,
                                    test_duration, metric_send_per_sec))
-        if self.mariadb_status == 'enabled':
-            test_params = [['total_number_of_sent_metrics', str(total_metric_send)],
-                           ['start_time', strt_time],
-                           ['end_time', stp_time],
-                           ['runtime', str(self.runtime)],
-                           ['test_duration', str(test_duration)],
-                           ['average_per_second', str(metric_send_per_sec)],
-                           ['frequency', str(self.frequency)]]
-            db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
-                                 self.mariadb_password, self.mariadb_database)
-            db_saver.save_test_params(db, self.testID, test_params)
-            db.close()
         num_of_sent_metric_queue.put(count_metric_request_sent * self.num_metric_per_request)
         return
 
@@ -174,7 +160,7 @@ class MetricSend(threading.Thread):
         write_line_to_file(res_file, header_line)
         return res_file
 
-    def write_final_result_line_to_file(self, metric_send):
+    def write_final_result_line_to_file(self, metric_send, metric_send_per_sec, strt_time, stp_time):
         print "Total metric send =" + str(metric_send)
         write_line_to_file(self.result_file,
                            "Total metric send = {}\nNumber of metrics per request: {} Number of threads: {}".
@@ -182,7 +168,12 @@ class MetricSend(threading.Thread):
         if self.mariadb_status == 'enabled':
             test_params = [['num_metrics_per_request', str(self.num_metric_per_request)],
                            ['num_threads', str(self.num_threads)],
-                           ['total_number_of_sent_metrics', str(metric_send)]]
+                           ['total_number_of_sent_metrics', str(metric_send)],
+                           ['runtime', str(self.runtime)],
+                           ['frequency', str(self.frequency * self.num_threads)],
+                           ['start_time', strt_time],
+                           ['end_time', stp_time],
+                           ['average_per_second', str(metric_send_per_sec)]]
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
             db_saver.save_test_params(db, self.testID, test_params)
@@ -194,7 +185,7 @@ class MetricSend(threading.Thread):
             time.sleep(self.delay)
         process_list = []
         total_num_metric_sent_queue = Queue()
-
+        test_start_time = datetime.utcnow().replace(microsecond=0)
         for i in range(self.num_threads):
             process = Process(target=self.run_metric_test,
                               args=("Process-{}".format(i), total_num_metric_sent_queue, self.result_file,))
@@ -206,8 +197,10 @@ class MetricSend(threading.Thread):
         for process in process_list:
             process.join()
             total_metric_send += total_num_metric_sent_queue.get()
-
-        self.write_final_result_line_to_file(total_metric_send)
+        test_end_time = datetime.utcnow().replace(microsecond=0)
+        test_duration = test_end_time - test_start_time
+        metric_send_per_sec = total_metric_send / test_duration.total_seconds()
+        self.write_final_result_line_to_file(total_metric_send, metric_send_per_sec, test_start_time, test_end_time)
         self.result_file.close()
 
 
