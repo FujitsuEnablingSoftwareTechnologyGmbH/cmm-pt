@@ -182,7 +182,7 @@ class MetricSend(threading.Thread):
         if self.mariadb_status == 'enabled':
             test_params = [['num_metrics_per_request', str(self.num_metric_per_request)],
                            ['num_threads', str(self.num_threads)],
-                           ['total_metric_send', str(metric_send)]]
+                           ['total_number_of_sent_metrics', str(metric_send)]]
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
             db_saver.save_test_params(db, self.testID, test_params)
