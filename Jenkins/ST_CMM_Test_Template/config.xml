@@ -1,0 +1,96 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>suite</name>
+          <description></description>
+          <choices class="java.util.Arrays$ArrayList">
+            <a class="string-array">
+              <string>TestSuite1</string>
+              <string>TestSuite2a</string>
+              <string>TestSuite2b</string>
+              <string>TestSuite4</string>
+              <string>TestSuite4a</string>
+              <string>TestSuite3</string>
+            </a>
+          </choices>
+        </hudson.model.ChoiceParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>conf_file</name>
+          <description></description>
+          <defaultValue>configuration</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>choice</name>
+          <description></description>
+          <choices class="java.util.Arrays$ArrayList">
+            <a class="string-array">
+              <string>1.yaml</string>
+              <string>2.yaml</string>
+            </a>
+          </choices>
+        </hudson.model.ChoiceParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>cd /home/st/cmm/perf
+/usr/bin/python /home/st/cmm/perf/launch_testSuite.py -suite $suite -config_file $conf_file$choice</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Shell>
+      <command>HOME=/home/st/cmm/perf
+DATE=$(date +&quot;%Y%m%d%H%M%S&quot;)
+TARGET=&quot;$HOME&quot;/sav/&quot;$suite&quot;_&quot;$DATE&quot;
+mysqldump --user=root --databases cmm --result-file=&quot;$HOME&quot;/result/&quot;$suite&quot;_&quot;$DATE&quot;.sql
+mkdir &quot;$TARGET&quot;
+cp $conf_file$choice &quot;$HOME&quot;/result/
+cp basic_configuration.yaml &quot;$HOME&quot;/result/
+cp test_configuration.yaml &quot;$HOME&quot;/result/ 
+cp result/* &quot;$TARGET&quot;/
+
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.ArtifactArchiver>
+      <artifacts>result/*</artifacts>
+      <allowEmptyArchive>true</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>false</defaultExcludes>
+      <caseSensitive>true</caseSensitive>
+    </hudson.tasks.ArtifactArchiver>
+    <hudson.plugins.ws__cleanup.WsCleanup plugin="ws-cleanup@0.32">
+      <patterns>
+        <hudson.plugins.ws__cleanup.Pattern>
+          <pattern>result/*</pattern>
+          <type>INCLUDE</type>
+        </hudson.plugins.ws__cleanup.Pattern>
+      </patterns>
+      <deleteDirs>false</deleteDirs>
+      <skipWhenFailed>false</skipWhenFailed>
+      <cleanWhenSuccess>true</cleanWhenSuccess>
+      <cleanWhenUnstable>true</cleanWhenUnstable>
+      <cleanWhenFailure>true</cleanWhenFailure>
+      <cleanWhenNotBuilt>true</cleanWhenNotBuilt>
+      <cleanWhenAborted>true</cleanWhenAborted>
+      <notFailBuild>true</notFailBuild>
+      <cleanupMatrixParent>false</cleanupMatrixParent>
+      <externalDelete></externalDelete>
+    </hudson.plugins.ws__cleanup.WsCleanup>
+  </publishers>
+  <buildWrappers/>
+</project>
