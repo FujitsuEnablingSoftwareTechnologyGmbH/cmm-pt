@@ -158,7 +158,7 @@ TestSuite3:
            log_level: NONE
            dimension:
            - key: hostname3
-             value: systemtest3   
+             value: systemtest3
 
 TestSuite4a: 
      Program:
@@ -244,7 +244,146 @@ TestSuite4:
            metric_dimension:
             - key: hostname
               value: alarmMertic
-       
+TestSuite5:
+    Program_before_stress:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  60
+           frequency: 8
+           log_level: INFO
+           dimension:
+           - key: hostname2b
+             value: systemtest2b
+
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 60
+            ticker: 2
+            num_stop: 10
+            search_field: application_type
+            search_string:
+                - SystemTest
+
+        log_latency:
+          - num_threads: 1
+            log_api_type: bulk
+            num_of_logs_in_one_bulk: 125
+            log_size: 200
+            runtime:  60
+            ticker:  5
+
+        metric_send:
+         - num_threads: 1
+           num_metrics_per_request: 100
+           LOG_EVERY_N: 1000
+           runtime: 60
+           frequency: 10
+           metric_name: systemtest2b
+           metric_dimension:
+            - key: hostname
+              value: systemtest
+
+        metric_throughput:
+         - runtime: 60
+           metric_name: systemtest2b
+           ticker: 10
+           ticker_to_stop: 2
+           metric_dimensions:
+            - key: hostname
+              value: systemtest
+
+        metric_latency:
+         - runtime: 60
+           check_ticker: 1
+           send_ticker: 10
+           timeout: 30
+    Program_stress:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  60
+           frequency: 8
+           log_level: INFO
+           dimension:
+           - key: hostname2b
+             value: systemtest2b
+        metric_send:
+         - num_threads: 1
+           num_metrics_per_request: 100
+           LOG_EVERY_N: 1000
+           runtime: 60
+           frequency: 10
+           metric_name: systemtest2b
+           metric_dimension:
+            - key: hostname
+              value: systemtest
+
+    Program_after_stress:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  60
+           frequency: 8
+           log_level: INFO
+           dimension:
+           - key: hostname2b
+             value: systemtest2b
+
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 60
+            ticker: 2
+            num_stop: 10
+            search_field: application_type
+            search_string:
+                - SystemTest
+
+        log_latency:
+          - num_threads: 1
+            log_api_type: bulk
+            num_of_logs_in_one_bulk: 125
+            log_size: 200
+            runtime:  60
+            ticker:  5
+
+        metric_send:
+         - num_threads: 1
+           num_metrics_per_request: 100
+           LOG_EVERY_N: 1000
+           runtime: 60
+           frequency: 10
+           metric_name: systemtest2b
+           metric_dimension:
+            - key: hostname
+              value: systemtest
+
+        metric_throughput:
+         - runtime: 60
+           metric_name: systemtest2b
+           ticker: 10
+           ticker_to_stop: 2
+           metric_dimensions:
+            - key: hostname
+              value: systemtest
+
+        metric_latency:
+         - runtime: 60
+           check_ticker: 1
+           send_ticker: 10
+           timeout: 30
+
+
+
 TestSuite6:
      Program:
         log_send:
@@ -287,12 +426,13 @@ TestSuite6:
            metric_dimension:
             - key: hostname
               value: systemtest
-        
+
 
         metric_latency:
          - runtime: 259200
-           check_frequency: 1
-           send_frequency: 10
+           check_ticker: 1
+           send_ticker: 10
            timeout: 30
+
 
 

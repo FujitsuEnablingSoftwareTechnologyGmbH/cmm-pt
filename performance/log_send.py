@@ -51,7 +51,7 @@ class LogSend(threading.Thread):
     def __init__(self, keystone_url, log_api_url, tenant_username, tenant_password, tenant_project, thread_num,
                  runtime, log_every_n, log_api_type, bulk_size, frequency, log_size, log_level, log_dimension,
                  delay, mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
-                 mariadb_database=None, testCaseID=1):
+                 mariadb_database=None, testCaseID=1, application_type_dimension='SystemTest'):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.keystone_url = keystone_url
@@ -69,6 +69,7 @@ class LogSend(threading.Thread):
         self.log_level = log_level
         self.log_dimension = log_dimension
         self.delay = delay
+        self.application_type_dimension = application_type_dimension
         self.token_handler = TokenHandler.TokenHandler(self.tenant_username, self.tenant_password, self.tenant_project,
                                                        self.keystone_url)
         self.result_file = self.create_result_file()
@@ -113,12 +114,12 @@ class LogSend(threading.Thread):
         """Send log to log api in single mode and return request status code
         """
         headers_post = {'X-Dimensions': 'applicationname:SystemTest,environment:productioni',
-                        'X-Application-Type': 'SystemTest',
+                        'X-Application-Type': self.application_type_dimension,
                         'X-Auth-Token': self.token_handler.get_valid_token()}
         dimensions = {}
         for dimension in LOG_DIMENSION:
             dimensions[dimension['key']] = dimension['value']
-        dimensions['application_type'] = 'SystemTest'
+        dimensions['application_type'] = self.application_type_dimension
         body = simplejson.dumps({'message': message, 'dimensions': dimensions})
         log_api_conn.request("POST", SINGLE_LOG_API_URL_PATH, body, headers_post)
         res = log_api_conn.getresponse()
