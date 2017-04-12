@@ -97,8 +97,7 @@ class CountMetric:
         write_line_to_file(test_result, 'Total number of metric:{}'.format(metric_count))
         if self.mariadb_status == 'enabled':
             db_connection = self.create_mariadb_connection()
-            db_saver.save_test_results(db_connection, self.testID, [['metric_count', metric_count,
-                                                                     datetime.utcnow().replace(microsecond=0)]])
+            db_saver.save_test_params(db_connection, self.testID, [['total_metrics', str(metric_count)]])
             db_connection.close()
 
 
