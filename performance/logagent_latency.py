@@ -91,7 +91,7 @@ class LatencyTest(threading.Thread):
                     format(count,  self.log_file, time.strftime('%H:%M:%S ', time.localtime()), self.check_timeout)
                 self.write_latency_result(write_log_time, search_status, '__')
                 test_latencies.append(['latency'+str(self.file_number), '-',
-                                       datetime.fromtimestamp(write_log_time).replace(microsecond=0)])
+                                       datetime.utcfromtimestamp(write_log_time).replace(microsecond=0)])
             time.sleep(self.check_ticker)
         if self.mariadb_status == 'enabled':
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
