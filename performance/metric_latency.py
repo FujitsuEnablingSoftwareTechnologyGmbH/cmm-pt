@@ -107,6 +107,7 @@ class MetricLatency(threading.Thread):
             print("timeout metric not found")
             write_line_to_file(self.result_file,
                                "{},{},{},{}".format(start_time_str, check_status, "---", "< " + str(self.timeout)))
+            latency = self.timeout
         if self.mariadb_status == 'enabled':
             return ["latency", str(latency), datetime.utcnow().replace(microsecond=0)]
 
