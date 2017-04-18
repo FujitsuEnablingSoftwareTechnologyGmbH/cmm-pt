@@ -200,8 +200,8 @@ class LogSend(threading.Thread):
                                   "{0:.2f}".format(test_duration), "{0:.2f}".format(log_send_per_sec)))
         if self.mariadb_status == 'enabled':
             self.test_params = [['total_number_of_sent_logs', str(total_number_of_sent_logs)],
-                                ['start_time', str(datetime.fromtimestamp(start_time).replace(microsecond=0))],
-                                ['end_time', str(datetime.fromtimestamp(end_time).replace(microsecond=0))],
+                                ['start_time', str(datetime.utcfromtimestamp(start_time).replace(microsecond=0))],
+                                ['end_time', str(datetime.utcfromtimestamp(end_time).replace(microsecond=0))],
                                 ['runtime', str(self.runtime)],
                                 ['average_per_second', str(log_send_per_sec)],
                                 ['log_level', str(self.log_level)],
