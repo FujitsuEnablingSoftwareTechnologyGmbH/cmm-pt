@@ -90,7 +90,7 @@ class LatencyTest(threading.Thread):
                 print 'COUNT :{} | FILE: {} | TIME: {} | Failed to find log in {} s'. \
                     format(count,  self.log_file, time.strftime('%H:%M:%S ', time.localtime()), self.check_timeout)
                 self.write_latency_result(write_log_time, search_status, '__')
-                test_latencies.append(['latency'+str(self.file_number), '-',
+                test_latencies.append(['latency'+str(self.file_number), self.check_timeout,
                                        datetime.utcfromtimestamp(write_log_time).replace(microsecond=0)])
             time.sleep(self.check_ticker)
         if self.mariadb_status == 'enabled':
