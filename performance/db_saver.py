@@ -57,3 +57,32 @@ def save_test_results(db, testID, testResults):
         except:
             db.rollback()
     db.commit()
+
+
+def save_metrics(db, testID, metric_name, metrics, hostname):
+    cursor = db.cursor()
+    for metric in metrics:
+        try:
+            time_stamp = str(datetime.strptime(metric[0], '%Y-%m-%dT%H:%M:%S.%fZ').replace(microsecond=0))
+            sql = "insert into {} (test_case_ID, time_stamp, value, hostname) values ({}, '{}' ,{}, '{}');" \
+                .format(metric_name.replace('.', '_'), testID, time_stamp, metric[1], hostname)
+            cursor.execute(sql)
+        except Exception as e:
+            print "failed to save to db. ", e
+    db.commit()
+
+
+def save_kafka_lag_metrics(db, testID, kafka_metrics):
+    cursor = db.cursor()
+    print kafka_metrics
+    for kafka_metric in kafka_metrics:
+        try:
+            time_stamp = str(datetime.strptime(kafka_metrics[0][0], '%Y-%m-%dT%H:%M:%S.%fZ').replace(microsecond=0))
+            sql = "insert into kafka_consumer_lag (test_case_ID, time_stamp, logstash_persister, 1_metrics, " \
+                  "transformer_logstash_consumer) values ({}, '{}', {}, {}, {});" \
+                .format(testID, time_stamp, kafka_metric[1], kafka_metric[2], kafka_metric[3])
+            cursor.execute(sql)
+        except Exception as e:
+            print "failed to save to db. ", e
+    db.commit()
+
