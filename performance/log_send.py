@@ -134,7 +134,7 @@ class LogSend(threading.Thread):
         dimensions = {}
         for dimension in self.log_dimension:
             dimensions[dimension['key']] = dimension['value']
-        dimensions['application_type'] = 'SystemTest'
+        dimensions['application_type'] = self.application_type_dimension
 
         for i in range(self.bulk_size):
             single_log_dimensions = dimensions.copy()
