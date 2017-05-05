@@ -272,13 +272,13 @@ if __name__ == "__main__":
         for configuration in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
             program_list.append(start_log_latency_program(configuration, TEST_CASE_ID))
 
-        for i in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
+        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
             program_list.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
 
-        for i in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
+        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
             program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
 
-        for i in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
+        for configuration2 in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
             program_list.append(start_metric_latency_program(configuration, TEST_CASE_ID))
 
         for program in program_list:
@@ -392,29 +392,29 @@ if __name__ == "__main__":
             program_list_stress.append(start_log_send_program(configuration, TEST_CASE_ID, 'Stress'))
 
         for configuration in TESTSUITE_CONF[SUITE]['Program_stress']['metric_send']:
-            program_list_stress.append(start_metric_send_program())
+            program_list_stress.append(start_metric_send_program(configuration, TEST_CASE_ID))
 
         for program in program_list_stress:
             program.join()
 
         program_list_after_stress = list()
 
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_throughput']:
+        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_throughput']:
             program_list_after_stress.append(start_log_throughput_program(configuration, TEST_CASE_ID))
 
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_send']:
+        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_send']:
             program_list_after_stress.append(start_log_send_program(configuration, TEST_CASE_ID))
 
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_latency']:
+        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_latency']:
             program_list_after_stress.append(start_log_latency_program(configuration, TEST_CASE_ID))
 
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_throughput']:
+        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_throughput']:
             program_list_after_stress.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
 
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_send']:
+        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_send']:
             program_list_after_stress.append(start_metric_send_program(configuration, TEST_CASE_ID))
 
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_latency']:
+        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_latency']:
             program_list_after_stress.append(start_metric_latency_program(configuration, TEST_CASE_ID))
 
         for program in program_list_after_stress:
