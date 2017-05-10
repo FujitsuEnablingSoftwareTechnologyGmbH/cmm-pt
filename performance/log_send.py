@@ -74,6 +74,7 @@ class LogSend(threading.Thread):
                                                        self.keystone_url)
         self.result_file = self.create_result_file()
         self.token_handler.get_valid_token()
+        self.total_number_of_sent_logs = 0
         if self.mariadb_status == 'enabled':
             self.mariadb_database = mariadb_database
             self.mariadb_username = mariadb_username
@@ -187,31 +188,18 @@ class LogSend(threading.Thread):
             time.sleep((duration_time + abs(duration_time)) / 2)
 
         end_time = time.time()
-        total_number_of_sent_logs = request_count * num_of_logs_in_one_request
+        total_log_sent_by_thread = request_count * num_of_logs_in_one_request
+        self.total_number_of_sent_logs += total_log_sent_by_thread
         test_duration = end_time - start_time
-        log_send_per_sec = total_number_of_sent_logs / test_duration
+        log_send_per_sec = total_log_sent_by_thread / test_duration
         print("-----Test Results-----test_name")
         print(thread_name+": End Time: ", datetime.now().strftime("%H:%M:%S.%f"))
-        print(thread_name+": {} log entries in {} seconds".format(total_number_of_sent_logs, test_duration))
-        print(thread_name+": {} per second".format(round(total_number_of_sent_logs / test_duration), 2))
+        print(thread_name+": {} log entries in {} seconds".format(total_log_sent_by_thread, test_duration))
+        print(thread_name+": {} per second".format(round(total_log_sent_by_thread / test_duration), 2))
         write_line_to_file(self.result_file, "{} , {} , {} , {} , {}, {}".
                            format(thread_name, time.strftime('%H:%M:%S', time.localtime(start_time)),
-                                  time.strftime('%H:%M:%S', time.localtime(end_time)), total_number_of_sent_logs,
+                                  time.strftime('%H:%M:%S', time.localtime(end_time)), total_log_sent_by_thread,
                                   "{0:.2f}".format(test_duration), "{0:.2f}".format(log_send_per_sec)))
-        if self.mariadb_status == 'enabled':
-            self.test_params = [['total_number_of_sent_logs', str(total_number_of_sent_logs)],
-                                ['start_time', str(datetime.utcfromtimestamp(start_time).replace(microsecond=0))],
-                                ['end_time', str(datetime.utcfromtimestamp(end_time).replace(microsecond=0))],
-                                ['runtime', str(self.runtime)],
-                                ['average_per_second', str(log_send_per_sec)],
-                                ['log_level', str(self.log_level)],
-                                ['log_size', str(self.log_size)],
-                                ['bulk_size', self.bulk_size],
-                                ['frequency', str(self.frequency)]]
-            db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
-                                 self.mariadb_password, self.mariadb_database)
-            db_saver.save_test_params(db, self.testID, self.test_params)
-            db.close()
 
     def create_result_file(self):
         """create file for result and write header string to this file
@@ -232,7 +220,7 @@ class LogSend(threading.Thread):
             print "wait {}s before starting test".format(self.delay)
             time.sleep(self.delay)
         thread_list = []
-
+        test_start_time = datetime.utcnow().replace(microsecond=0)
         for i in range(self.thread_num):
             thread = Thread(target=self.run_log_send_test)
             thread.start()
@@ -240,9 +228,24 @@ class LogSend(threading.Thread):
 
         for thread in thread_list:
             thread.join()
-
+        test_end_time = datetime.utcnow().replace(microsecond=0)
         self.write_final_result_line()
         self.result_file.close()
+        log_send_per_sec = self.total_number_of_sent_logs / (test_end_time - test_start_time).total_seconds()
+        if self.mariadb_status == 'enabled':
+            self.test_params = [['total_number_of_sent_logs', str(self.total_number_of_sent_logs)],
+                                ['start_time', str(test_start_time)],
+                                ['end_time', str(test_end_time)],
+                                ['runtime', str(self.runtime)],
+                                ['average_per_second', str(log_send_per_sec)],
+                                ['log_level', str(self.log_level)],
+                                ['log_size', str(self.log_size)],
+                                ['bulk_size', self.bulk_size],
+                                ['frequency', str(self.frequency)]]
+            db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
+                                 self.mariadb_password, self.mariadb_database)
+            db_saver.save_test_params(db, self.testID, self.test_params)
+            db.close()
 
 
 def create_program_argument_parser():
