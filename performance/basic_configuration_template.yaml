@@ -5,6 +5,8 @@ url:
     elastic_url: http://{elasticsearch address}:9200
     influxdb: influxdb address:8086
 
+monasca_hostname:
+    - {monasca_hostname}
 
 users:
     tenant_name: cmm-agent

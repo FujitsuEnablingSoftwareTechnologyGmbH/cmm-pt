@@ -31,7 +31,7 @@ class MetricGetter:
     def __init__(self, metric_api_url, keystone_url, keystone_user, keystone_password, keystone_project, monasca_hosts,
                  mariadb_username=None, mariadb_password=None, mariadb_hostname=None, mariadb_database=None,
                  test_case_id=1):
-        self.metric_api_url = urlparse(metric_api_url)
+        self.metric_api_url = urlparse(metric_api_url + '/metrics')
         self.toke_handler = TokenHandler.TokenHandler(keystone_user, keystone_password, keystone_project, keystone_url)
         self.monasca_client = client.Client(monasca_api_version, metric_api_url,
                                             token=self.toke_handler.get_valid_token())
