@@ -76,14 +76,17 @@ class MetricThroughput(threading.Thread):
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'
                 exit()
 
-    def create_query(self):
-        """create influx select query that return number of test metric """
-        dimensions = []
+    def get_dimensions_for_db_query(self):
+        dimensions = list()
         for dimension in self.metric_dimensions:
             dimensions.append("{} = \'{}\'".format(dimension['key'], dimension['value']))
+        return dimensions
+
+    def create_cont_query(self):
+        """create influx select query that return number of test metric """
         current_utc_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         return "select count(value) from \"{0}\" WHERE time > \'{1}\' AND {2}"\
-            .format(self.metric_name, current_utc_time, " AND ".join(dimensions))
+            .format(self.metric_name, current_utc_time, " AND ".join(self.get_dimensions_for_db_query()))
 
     def write_result_to_file(self, metric_difference, total_metric, metric_per_sec):
         current_time = datetime.now().strftime("%H:%M:%S.%f")
@@ -113,8 +116,9 @@ class MetricThroughput(threading.Thread):
 
     def run(self):
 
-        query = self.create_query()
-        strt_time = datetime.utcnow().replace(microsecond=0)
+        query = self.create_cont_query()
+        print query
+        datetime_start_time = datetime.utcnow().replace(microsecond=0)
         client = InfluxDBClient(self.influx_ip, self.influx_port, self.influx_user, self.influx_password,
                                 self.influx_database)
         count = 0
@@ -156,18 +160,47 @@ class MetricThroughput(threading.Thread):
                     count_ticker_to_stop = 0
             if self.ticker > query_time:
                 time.sleep(self.ticker - query_time)
+        average_throughout = self.get_average_throughput(datetime_start_time, client, count)
         self.write_final_result_line_to_file(count)
         if self.mariadb_status == 'enabled':
-            self.test_params = [['start_time', str(strt_time)],
+            self.test_params = [['start_time', str(datetime_start_time)],
                                 ['end_time', str(datetime.utcnow().replace(microsecond=0))],
                                 ['metric_name', str(self.metric_name)],
                                 ['runtime', str(self.runtime)],
-                                ['total_metrics', str(int(count))]]
+                                ['total_metrics', str(int(count))],
+                                ['average_throughout', str(average_throughout)]]
             db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                  self.mariadb_password, self.mariadb_database)
             db_saver.save_test_params(db, self.testID, self.test_params)
             db_saver.save_test_results(db, self.testID, self.test_results)
             db.close()
+
+    def get_average_throughput(self, start_time, inlufx_client, metric_number):
+        time_format = '%Y-%m-%dT%H:%M:%S.%fZ'
+        first_metric_timestamp = \
+            datetime.strptime(self.get_first_metric_timestamp(start_time, inlufx_client), time_format)
+        last_metric_timestamp = \
+            datetime.strptime(self.get_last_metric_timestamp(start_time, inlufx_client), time_format)
+        return metric_number / (last_metric_timestamp - first_metric_timestamp).total_seconds()
+
+    def get_first_metric_timestamp(self, start_time, inlufx_client):
+        query = "select first(value) from \"{0}\" WHERE time > \'{1}\' AND {2}" \
+            .format(self.metric_name, start_time, " AND ".join(self.get_dimensions_for_db_query()))
+        response = inlufx_client.query(query)
+        if len(list(response)) is 0:
+            raise IOError
+        else:
+            return str(list(response)[0][0]['time'])
+
+    def get_last_metric_timestamp(self, start_time, inlufx_client):
+        query = "select last(value) from \"{0}\" WHERE time > \'{1}\' AND {2}" \
+            .format(self.metric_name, start_time, " AND ".join(self.get_dimensions_for_db_query()))
+        response = inlufx_client.query(query)
+        if len(list(response)) is 0:
+            raise IOError
+        else:
+            return str(list(response)[0][0]['time'])
+
 
 
 def create_program_argument_parser():
