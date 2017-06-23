@@ -58,14 +58,13 @@ class LatencyTest(threading.Thread):
         self.check_timeout = check_timeout
         self.runtime = runtime
         self.logger = self.create_logger()
-        if mariadb_status == 'enabled':
-            self.mariadb_status = mariadb_status
-            self.mariadb_hostname = mariadb_hostname
-            self.mariadb_username = mariadb_username
-            self.mariadb_password = mariadb_password
-            self.mariadb_database = mariadb_database
-            self.testID = testID
-            self.file_number = file_number
+        self.mariadb_status = mariadb_status
+        self.mariadb_hostname = mariadb_hostname
+        self.mariadb_username = mariadb_username
+        self.mariadb_password = mariadb_password
+        self.mariadb_database = mariadb_database
+        self.testID = testID
+        self.file_number = file_number
 
     def run(self):
 
@@ -162,12 +161,12 @@ class LogagentLatency(threading.Thread):
         self.search_ticker = search_ticker
         self.runtime = runtime
         self.log_files = log_files
-        if self.mariadb_status == 'enabled':
-            self.mariadb_database = mariadb_database
-            self.mariadb_username = mariadb_username
-            self.mariadb_password = mariadb_password
-            self.mariadb_hostname = mariadb_hostname
-            if ((self.mariadb_hostname is not None) and
+        self.testCaseID = testCaseID
+        self.mariadb_database = mariadb_database
+        self.mariadb_username = mariadb_username
+        self.mariadb_password = mariadb_password
+        self.mariadb_hostname = mariadb_hostname
+        if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
                 self.testCaseID = testCaseID
@@ -183,7 +182,7 @@ class LogagentLatency(threading.Thread):
                     test_params.append(['msg_size'+str(counter), str(lg_file['msg_size'])])
                 db_saver.save_test_params(db, self.testID, test_params)
                 db.close()
-            else:
+        else:
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'
                 exit()
 
