@@ -166,7 +166,8 @@ class LogagentLatency(threading.Thread):
         self.mariadb_username = mariadb_username
         self.mariadb_password = mariadb_password
         self.mariadb_hostname = mariadb_hostname
-        if ((self.mariadb_hostname is not None) and
+        if mariadb_status == 'enabled':
+            if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
                 self.testCaseID = testCaseID
@@ -182,7 +183,7 @@ class LogagentLatency(threading.Thread):
                     test_params.append(['msg_size'+str(counter), str(lg_file['msg_size'])])
                 db_saver.save_test_params(db, self.testID, test_params)
                 db.close()
-        else:
+            else:
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'
                 exit()
 

@@ -44,6 +44,7 @@ class MetricGetter:
             for host in self.monasca_hosts:
                 metrics = self.get_metrics(metric['name'], host, start_time, end_time, metric['dimensions'])
                 db_saver.save_metrics(self.mariadb_con, self.test_case_id, metric['name'], metrics, host)
+        print "End metrics"        
         kafka_metric_list = list()
         for dimensions in kafka_metrics_dimensions:
             kafka_metric_list.append(self.get_metrics('kafka.consumer_lag',
@@ -55,6 +56,7 @@ class MetricGetter:
                 kafka_metric_combine[i].append(kafka_metric_list[0][j][1])
         print kafka_metric_combine
         db_saver.save_kafka_lag_metrics(self.mariadb_con, self.test_case_id, kafka_metric_combine)
+        print "End kafka"   
 
     def get_metrics(self, metric_name, hostname, start_time, end_time, dimensions):
         connection = httplib.HTTPConnection(self.metric_api_url.netloc)
@@ -67,7 +69,11 @@ class MetricGetter:
         response = connection.getresponse()
         response_json = json.loads(response.read())
         print response_json
-        measurements = [[measurement[0], measurement[1]] for measurement in response_json['elements'][0]['measurements']]
+        measurements = []
+        try:
+          measurements = [[measurement[0], measurement[1]] for measurement in response_json['elements'][0]['measurements']]
+        except Exception as e:
+            print('Failed to get measurements')
         print measurements
         connection.close()
         return measurements
