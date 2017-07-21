@@ -102,6 +102,20 @@ def count_logs_by_app_type(app_type, elastic_url):
     return body.get('count', {}), res.status
 
 
+def count_logs_by_dimension(key, value, elastic_url):
+    conn = httplib.HTTPConnection(elastic_url)
+    body = serialize_to_json(dict(
+        query=dict(
+            match={key: value}
+        )
+    ))
+    conn.request("POST", ELASTIC_COUNT_PATH, body, REST_HEADER)
+    res = conn.getresponse()
+    body = res.read()
+    body = deserialize_json(body)
+    return body.get('count', {}), res.status
+
+
 def count_logs_by_app_message(message, elastic_url):
     conn = httplib.HTTPConnection(elastic_url)
     body = serialize_to_json(dict(

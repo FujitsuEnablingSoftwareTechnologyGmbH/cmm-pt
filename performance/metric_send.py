@@ -49,7 +49,7 @@ class MetricSend(threading.Thread):
     def __init__(self, keystone_url, tenant_name, tenant_password, tenant_project, metric_api_url, num_threads,
                  num_metric_per_request, log_every_n, runtime, frequency, metric_name, metric_dimension, delay,
                  mariadb_status, mariadb_username=None,mariadb_password=None, mariadb_hostname=None,
-                 mariadb_database=None, testCaseID=1):
+                 mariadb_database=None, testCaseID=[1,""]):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.headers = {"Content-type": "application/json"}
@@ -66,7 +66,7 @@ class MetricSend(threading.Thread):
         self.metric_name = metric_name
         self.metric_dimension = metric_dimension
         self.delay = delay
-        self.result_file = self.create_result_file()
+        self.result_file = self.create_result_file(testCaseID[1])
         self.TOKEN_HANDLER = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
                                                        self.keystone_url)
         if self.mariadb_status == 'enabled':
@@ -77,7 +77,7 @@ class MetricSend(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID = testCaseID
+                self.testCaseID = testCaseID[0]
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
@@ -152,9 +152,9 @@ class MetricSend(threading.Thread):
         num_of_sent_metric_queue.put(count_metric_request_sent * self.num_metric_per_request)
         return
 
-    def create_result_file(self):
+    def create_result_file(self,path):
         """create result file and save header line to this file """
-        res_file = create_file(TEST_NAME)
+        res_file = create_file(path,TEST_NAME)
         header_line = ("Thread#, Start Time, Stop Time, #sent Metrics, "
                        "Used Time, Average per second ,Number of threads: {}")
         write_line_to_file(res_file, header_line)

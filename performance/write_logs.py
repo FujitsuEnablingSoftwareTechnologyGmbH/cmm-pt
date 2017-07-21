@@ -30,15 +30,17 @@ else:
     LOG_DIR = 'test_result/'
     LOG_FILE_FORMAT = '.csv'
 
-
 def create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
 
-def create_file(test_name):
-    create_directory(LOG_DIR)
-    lg_file_long = LOG_DIR + test_name + '_' + (datetime.datetime.now().strftime("%Y-%m-%dT%H_%M_%S.%f"))[:-3]\
+def create_file(path,test_name):
+
+    if path == "" :
+        path = LOG_DIR
+    create_directory(path)
+    lg_file_long = path + test_name + '_' + (datetime.datetime.now().strftime("%Y-%m-%dT%H_%M_%S.%f"))[:-3]\
         + LOG_FILE_FORMAT
     log_file = open(lg_file_long, 'a')
     return log_file
@@ -51,6 +53,8 @@ def write_line_to_file(lg_file, body):
 
 def create_tmp_file():
     """create temporary file with unique name"""
+
+
     filename = LOG_DIR + str(uuid.uuid1())
     fp = open(filename, 'w')
     fp.close()
@@ -59,6 +63,7 @@ def create_tmp_file():
 
 def serialize_logging(lg_file, log_entry):
     """This method is used to write result line to the file when multiple client use the same file"""
+
     num_tries = 10
     wait_time = 2
     lock_filename = 'logging.lock'

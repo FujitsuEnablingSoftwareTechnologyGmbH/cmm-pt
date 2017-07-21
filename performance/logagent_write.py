@@ -107,7 +107,7 @@ class LogWriter(threading.Thread):
 
 class LogGenerator(threading.Thread):
 
-    def __init__(self, runtime, msg, freq, input_file_name, outp_file_name, queue, log_level, latency_string=None):
+    def __init__(self, runtime, msg, freq, input_file_name, outp_file_name,log_dir, queue, log_level, latency_string=None):
         threading.Thread.__init__(self)
         self.freq = freq
         self.msg = msg
@@ -115,6 +115,7 @@ class LogGenerator(threading.Thread):
         self.input_file_name = input_file_name
         self.latency_string = latency_string
         self.outp_file_name = outp_file_name
+        self.path = log_dir
         self.total = 0
         self.queue = queue
         self.log_level = log_level
@@ -125,7 +126,7 @@ class LogGenerator(threading.Thread):
                                           str(self.freq), str(self.total))
         file_name = "ReadThread_{}_{}".format(self.input_file_name, self.outp_file_name)
         head_result_str = "input_file_name, length_of_message, frequency_written, total_logs_written_to_queue"
-        lg_file1 = create_file(file_name)
+        lg_file1 = create_file(self.path,file_name)
         write_line_to_file(lg_file1, head_result_str)
         write_line_to_file(lg_file1, result_str)
         lg_file1.close()
@@ -155,7 +156,7 @@ class LogGenerator(threading.Thread):
 class LogagentWrite(threading.Thread):
     def __init__(self, runtime, log_every_n, inp_file_dir, inp_files, outp_file_dir, outp_file_name, outp_count,
                  mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
-                 mariadb_database=None, testCaseID=1):
+                 mariadb_database=None, testCaseID=[1,""]):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.runtime = runtime
@@ -165,7 +166,8 @@ class LogagentWrite(threading.Thread):
         self.outp_file_dir = outp_file_dir
         self.outp_file = outp_file_name
         self.outp_count = outp_count
-        self.result_file = create_file(TEST_NAME + "_final")
+        self.log_dir = testCaseID[1]
+        self.result_file = create_file(self.log_dir,TEST_NAME + "_final")
         if self.mariadb_status == 'enabled':
             self.mariadb_database = mariadb_database
             self.mariadb_username = mariadb_username
@@ -174,10 +176,10 @@ class LogagentWrite(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID = testCaseID
+                self.testCaseID = testCaseID[0]
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
+                self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
                 self.test_params = list()
                 self.test_params = [['start_time', str(datetime.utcnow().replace(microsecond=0))],
                                     ['runtime', str(self.runtime)],
@@ -205,7 +207,7 @@ class LogagentWrite(threading.Thread):
             for input_file in self.inp_files:
                 message = self.get_message_from_input_file(self.inp_file_dir + input_file['name'])
                 t = LogGenerator(self.runtime, message, input_file['frequency'], input_file['name'], out_file,
-                                 q, input_file['loglevel'])
+                                 self.log_dir,q, input_file['loglevel'])
                 t.start()
 
             write_thread = LogWriter(self.outp_file_dir + out_file, q, self.log_every_n, self.runtime)

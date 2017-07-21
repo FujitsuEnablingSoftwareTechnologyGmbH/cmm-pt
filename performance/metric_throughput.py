@@ -43,7 +43,7 @@ class MetricThroughput(threading.Thread):
 
     def __init__(self, influx_url, influx_port, influx_user, influx_password, influx_database, runtime, ticker,
                  ticker_to_stop, metric_name, metric_dimension, mariadb_status, mariadb_username=None,
-                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=1):
+                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=[1,""]):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.influx_ip = influx_url
@@ -56,7 +56,7 @@ class MetricThroughput(threading.Thread):
         self.ticker_to_stop = ticker_to_stop
         self.metric_name = metric_name
         self.metric_dimensions = metric_dimension
-        self.results_file = self.create_result_file()
+        self.results_file = self.create_result_file(testCaseID[1])
         if self.mariadb_status == 'enabled':
             self.mariadb_database = mariadb_database
             self.mariadb_username = mariadb_username
@@ -65,10 +65,10 @@ class MetricThroughput(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID = testCaseID
+                self.testCaseID = testCaseID[0]
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
+                self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
                 self.test_results = list()
                 self.test_params = list()
                 db.close()
@@ -102,8 +102,8 @@ class MetricThroughput(threading.Thread):
         print result_line
         serialize_logging(self.results_file, result_line)
 
-    def create_result_file(self):
-        res_file = create_file("{}_{}_".format(TEST_NAME, self.metric_name))
+    def create_result_file(self,path):
+        res_file = create_file(path,"{}_{}_".format(TEST_NAME, self.metric_name))
         serialize_logging(res_file, "Time, difference, count, metric per sec")
         return res_file
 

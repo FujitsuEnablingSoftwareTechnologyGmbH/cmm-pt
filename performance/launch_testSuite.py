@@ -15,6 +15,8 @@
 import argparse
 import MySQLdb
 import yaml
+import os
+import os.path
 from urlparse import urlparse
 from datetime import datetime
 import db_saver
@@ -56,7 +58,7 @@ MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['p
 MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 MARIADB_STATUS = BASIC_CONF['mariadb']['status']
 MONASCA_HOSTNAME = BASIC_CONF['monasca_hostname']
-TEST_CASE_ID = 0
+TEST_CASE_ID = [0,""]
 
 TEST_NAME = 'log_metric_test_launch'
 program_argument = create_program_argument_parser()
@@ -68,6 +70,18 @@ if CONF_FILE:
     TESTSUITE_CONF = yaml.load(file('./' + CONF_FILE), Loader=yaml.Loader)
 else:
     TESTSUITE_CONF = yaml.load(file('./launch_configuration1.yaml'), Loader=yaml.Loader)
+
+
+def create_file(strdir):
+    path = "results/"+ strdir + '_' + (datetime.now().strftime("%Y-%m-%dT%H_%M_%S") + '/')
+    if os.path.isfile('result_dir_for_Suite.yaml'):
+        os.remove('result_dir_for_Suite.yaml')
+    fp = open('result_dir_for_Suite.yaml', 'w')
+
+    fp.write("write_result:"  + '\n')
+    fp.write("    directory:  " + path)
+    fp.flush()
+    fp.close()
 
 
 def create_and_get_test_case_id(test_suite):
@@ -215,16 +229,21 @@ def start_logagent_latency(config, test_case_id):
 
 if __name__ == "__main__":
 
+    TEST_CASE_ID[1] = "results/" + SUITE + '_' + (datetime.now().strftime("%Y-%m-%dT%H_%M_%S") + '/')
+
     if SUITE == 'TestSuite1':
+
+
         if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID = create_and_get_test_case_id(SUITE)
+            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
             metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                          MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE, TEST_CASE_ID)
+                                         MARIADB_DATABASE, TEST_CASE_ID[0])
             start_time = datetime.utcnow()
         program_list = []
         for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
             program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
+
 
         for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
             program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
@@ -237,18 +256,20 @@ if __name__ == "__main__":
 
         if MARIADB_STATUS == 'enabled':
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID)
+            db_saver.close_testCase(db, TEST_CASE_ID[0])
             db.close()
             metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
 
+
     elif SUITE == 'TestSuite2a':
+
         if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID = create_and_get_test_case_id(SUITE)
+            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
             start_time = datetime.utcnow()
         program_list = []
         metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                      MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                     MARIADB_DATABASE, TEST_CASE_ID)
+                                     MARIADB_DATABASE, TEST_CASE_ID[0])
 
         for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
             program_list.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
@@ -263,16 +284,16 @@ if __name__ == "__main__":
             program.join()
         if MARIADB_STATUS == 'enabled':
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID)
+            db_saver.close_testCase(db, TEST_CASE_ID[0])
             db.close()
             metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
 
     elif SUITE == 'TestSuite2b':
         if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID = create_and_get_test_case_id(SUITE)
+            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
             metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                          MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE, TEST_CASE_ID)
+                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
             start_time = datetime.utcnow()
         program_list = []
 
@@ -299,16 +320,16 @@ if __name__ == "__main__":
 
         if MARIADB_STATUS == 'enabled':
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID)
+            db_saver.close_testCase(db,  TEST_CASE_ID[0])
             db.close()
             metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
 
     elif SUITE == 'TestSuite3':
         if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID = create_and_get_test_case_id(SUITE)
+            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
             metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                          MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE, TEST_CASE_ID)
+                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
             start_time = datetime.utcnow()
         program_list = []
 
@@ -322,22 +343,23 @@ if __name__ == "__main__":
             program_list.append(start_logagent_write(configuration, TEST_CASE_ID))
 
         for configuration in TESTSUITE_CONF[SUITE]['Program']['logagent_latency']:
+
             program_list.append(start_logagent_latency(configuration, TEST_CASE_ID))
 
         for program in program_list:
             program.join()
         if MARIADB_STATUS == 'enabled':
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID)
+            db_saver.close_testCase(db,  TEST_CASE_ID[0])
             db.close()
             metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
 
     elif SUITE == 'TestSuite4a':
         if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID = create_and_get_test_case_id(SUITE)
+            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
             metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                          MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE, TEST_CASE_ID)
+                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
             start_time = datetime.utcnow()
         program_list = []
         for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
@@ -350,16 +372,16 @@ if __name__ == "__main__":
             program.join()
         if MARIADB_STATUS == 'enabled':
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID)
+            db_saver.close_testCase(db,  TEST_CASE_ID[0])
             db.close()
             metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
 
     elif SUITE == 'TestSuite4':
         if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID = create_and_get_test_case_id(SUITE)
+            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
             metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                          MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE, TEST_CASE_ID)
+                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
             start_time = datetime.utcnow()
         program_list = []
 
@@ -384,16 +406,16 @@ if __name__ == "__main__":
 
         if MARIADB_STATUS == 'enabled':
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID)
+            db_saver.close_testCase(db,  TEST_CASE_ID[0])
             db.close()
             metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
 
     elif SUITE == 'TestSuite5':
         if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID = create_and_get_test_case_id(SUITE)
+            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
             metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                          MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE, TEST_CASE_ID)
+                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
             start_time = datetime.utcnow()
 
         program_list_before_stress = list()
@@ -454,16 +476,16 @@ if __name__ == "__main__":
 
         if MARIADB_STATUS == 'enabled':
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID)
+            db_saver.close_testCase(db,  TEST_CASE_ID[0])
             db.close()
             metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
 
     elif SUITE == 'TestSuite6':
         if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID = create_and_get_test_case_id(SUITE)
+            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
             metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                          MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE, TEST_CASE_ID)
+                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
             start_time = datetime.utcnow()
 
         test_suite_start_time = datetime.utcnow().replace(microsecond=0)
@@ -502,7 +524,7 @@ if __name__ == "__main__":
 
         if MARIADB_STATUS == 'enabled':
             db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID)
+            db_saver.close_testCase(db,  TEST_CASE_ID[0])
             db.close()
             metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
 

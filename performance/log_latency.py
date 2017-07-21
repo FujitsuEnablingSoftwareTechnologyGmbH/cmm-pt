@@ -52,7 +52,7 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 class LogLatency(threading.Thread):
     def __init__(self, keystone_url, log_api_url, elastic_url, tenant_username, tenant_password, tenant_project,
                  runtime, thread_num, log_api_type, bulk_size, log_size, mariadb_status, mariadb_username=None,
-                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=1):
+                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=[1,""]):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.keystone_url = keystone_url
@@ -67,7 +67,7 @@ class LogLatency(threading.Thread):
         self.bulk_size = bulk_size
         self.log_size = log_size
         self.token_handler = TokenHandler.TokenHandler(tenant_username, tenant_password, tenant_project, keystone_url)
-        self.result_file = self.create_result_file()
+        self.result_file = self.create_result_file(testCaseID[1])
         if self.mariadb_status == 'enabled':
             self.mariadb_database = mariadb_database
             self.mariadb_username = mariadb_username
@@ -76,10 +76,10 @@ class LogLatency(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID = testCaseID
+                self.testCaseID = testCaseID[0]
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
+                self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
                 db.close()
             else:
                 print 'One of mariadb params is not set while mariadb_status=="enabled"'
@@ -211,14 +211,14 @@ class LogLatency(threading.Thread):
         if self.mariadb_status == 'enabled':
             return ["latency", str(latency), datetime.utcnow().replace(microsecond=0)]
 
-    def create_result_file(self):
+    def create_result_file(self,path):
         """create file for result then write header line to this file """
         test_info_line = "Log_api_mode: {}, Number of threads: {}, RunTime: {}, Log_size: {}"\
                          .format(self.log_api_type, self.thread_num, self.runtime, self.log_size)
         header_line = "Thread#, Count, Send_Status, Search_Result, Start Time, Stop Time, Latency"
         if self.log_api_type == 'bulk':
             test_info_line += ", Number of logs in one Bulk: {}".format(self.bulk_size)
-        res_file = create_file(TEST_NAME)
+        res_file = create_file(path,TEST_NAME)
         write_line_to_file(res_file, test_info_line)
         write_line_to_file(res_file, header_line)
         return res_file

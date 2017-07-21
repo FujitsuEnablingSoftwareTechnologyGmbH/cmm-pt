@@ -44,7 +44,7 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 
 class LatencyTest(threading.Thread):
     def __init__(self, elastic_url, check_ticker, search_ticker, check_timeout, runtime, log_file, log_directory,
-                 log_level, msg_size, file_number, mariadb_status, testID, mariadb_username=None, mariadb_password=None,
+                 log_level, msg_size, file_number, mariadb_status, testID, testCasePath, mariadb_username=None, mariadb_password=None,
                  mariadb_hostname=None, mariadb_database=None):
         threading.Thread.__init__(self, )
         self.elastic_url = elastic_url
@@ -52,7 +52,7 @@ class LatencyTest(threading.Thread):
         self.log_file = log_file
         self.log_level = log_level
         self.msg_size = msg_size
-        self.result_file = self.create_result_file()
+        self.result_file = self.create_result_file(testCasePath)
         self.check_ticker = check_ticker
         self.search_ticker = search_ticker
         self.check_timeout = check_timeout
@@ -134,9 +134,9 @@ class LatencyTest(threading.Thread):
             time.sleep(self.search_ticker)
         return 'FAILED'
 
-    def create_result_file(self):
+    def create_result_file(self,path):
         """create result file and save header line to this file """
-        res_file = create_file("{}_{}_".format(TEST_NAME, self.log_file))
+        res_file = create_file(path,"{}_{}_".format(TEST_NAME, self.log_file))
         header_line = "Start Time, Status, Latency"
         write_line_to_file(res_file, header_line)
         return res_file
@@ -152,7 +152,7 @@ class LatencyTest(threading.Thread):
 class LogagentLatency(threading.Thread):
     def __init__(self, elastic_url, check_timeout, check_ticker, search_ticker, runtime, log_files,
                  mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
-                 mariadb_database=None, testCaseID=1):
+                 mariadb_database=None, testCaseID=[1,""]):
         threading.Thread.__init__(self, )
         self.mariadb_status = mariadb_status
         self.elastic_url = elastic_url
@@ -161,7 +161,9 @@ class LogagentLatency(threading.Thread):
         self.search_ticker = search_ticker
         self.runtime = runtime
         self.log_files = log_files
-        self.testCaseID = testCaseID
+        self.testCaseID = testCaseID[0]
+        self.testID = 1
+        self.testcCasePath = testCaseID[1]
         self.mariadb_database = mariadb_database
         self.mariadb_username = mariadb_username
         self.mariadb_password = mariadb_password
@@ -170,10 +172,10 @@ class LogagentLatency(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID = testCaseID
+                self.testCaseID = testCaseID[0]
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
+                self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
                 test_params = [['start_time', str(datetime.utcnow().replace(microsecond=0))],
                                ['runtime', str(self.runtime)],
                                ['check_ticker', str(self.check_ticker)],
@@ -193,7 +195,7 @@ class LogagentLatency(threading.Thread):
         for counter, log_file in enumerate(self.log_files):
             t = LatencyTest(self.elastic_url, self.check_ticker, self.search_ticker, self.check_timeout, self.runtime,
                             log_file['file'], log_file['directory'], log_file['log_level'], log_file['msg_size'],
-                            counter, self.mariadb_status, self.testID, self.mariadb_username, self.mariadb_password,
+                            counter, self.mariadb_status, self.testID, self.testcCasePath,self.mariadb_username, self.mariadb_password,
                             self.mariadb_hostname, self.mariadb_database)
             t.start()
             thread_list.append(t)

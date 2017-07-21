@@ -51,7 +51,7 @@ class LogSend(threading.Thread):
     def __init__(self, keystone_url, log_api_url, tenant_username, tenant_password, tenant_project, thread_num,
                  runtime, log_every_n, log_api_type, bulk_size, frequency, log_size, log_level, log_dimension,
                  delay, mariadb_status, mariadb_username=None, mariadb_password=None, mariadb_hostname=None,
-                 mariadb_database=None, testCaseID=1, application_type_dimension='SystemTest'):
+                 mariadb_database=None, testCaseID=[1,""], application_type_dimension='SystemTest'):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.keystone_url = keystone_url
@@ -72,7 +72,7 @@ class LogSend(threading.Thread):
         self.application_type_dimension = application_type_dimension
         self.token_handler = TokenHandler.TokenHandler(self.tenant_username, self.tenant_password, self.tenant_project,
                                                        self.keystone_url)
-        self.result_file = self.create_result_file()
+        self.result_file = self.create_result_file(testCaseID[1])
         self.token_handler.get_valid_token()
         self.total_number_of_sent_logs = 0
         if self.mariadb_status == 'enabled':
@@ -83,10 +83,10 @@ class LogSend(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID = testCaseID
+                self.testCaseID = testCaseID[0]
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                self.testID = db_saver.save_test(db, testCaseID, TEST_NAME)
+                self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
                 self.test_params = list()
                 db.close()
             else:
@@ -120,7 +120,7 @@ class LogSend(threading.Thread):
         dimensions = {}
         for dimension in LOG_DIMENSION:
             dimensions[dimension['key']] = dimension['value']
-        dimensions['application_type'] = self.application_type_dimension
+       # dimensions['application_type'] = self.application_type_dimension
         body = simplejson.dumps({'message': message, 'dimensions': dimensions})
         log_api_conn.request("POST", SINGLE_LOG_API_URL_PATH, body, headers_post)
         res = log_api_conn.getresponse()
@@ -201,11 +201,11 @@ class LogSend(threading.Thread):
                                   time.strftime('%H:%M:%S', time.localtime(end_time)), total_log_sent_by_thread,
                                   "{0:.2f}".format(test_duration), "{0:.2f}".format(log_send_per_sec)))
 
-    def create_result_file(self):
+    def create_result_file(self,path):
         """create file for result and write header string to this file
         """
         header_line = "Thread#, Start Time, Stop Time, # of sent Logs, Used Time, Average per second"
-        res_file = create_file("{}_{}_".format(TEST_NAME,self.log_level))
+        res_file = create_file(path,"{}_{}_".format(TEST_NAME,self.log_level))
         write_line_to_file(res_file, header_line)
         return res_file
 

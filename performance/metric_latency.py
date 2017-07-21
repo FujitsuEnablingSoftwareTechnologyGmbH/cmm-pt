@@ -48,7 +48,7 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 class MetricLatency(threading.Thread):
     def __init__(self, keystone_url, tenant_name, tenant_password, tenant_project, metric_api_url, runtime,
                  check_ticker, send_ticker, timeout, mariadb_status, mariadb_username=None,mariadb_password=None,
-                 mariadb_hostname=None, mariadb_database=None, testCaseID=1):
+                 mariadb_hostname=None, mariadb_database=None, testCaseID=[1,""]):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.keystone_url = keystone_url
@@ -60,7 +60,7 @@ class MetricLatency(threading.Thread):
         self.check_ticker = check_ticker
         self.send_ticker = send_ticker
         self.timeout = timeout
-        self.result_file = create_file(TEST_NAME)
+        self.result_file = create_file(testCaseID[1],TEST_NAME)
         self.toke_handler = TokenHandler.TokenHandler(self.tenant_name, self.tenant_password, self.tenant_project,
                                                       self.keystone_url)
         if self.mariadb_status == 'enabled':
@@ -73,7 +73,7 @@ class MetricLatency(threading.Thread):
                     (self.mariadb_database is not None)):
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
-                self.testCaseID = testCaseID
+                self.testCaseID = testCaseID[0]
                 self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
                 db.close()
                 self.test_results = list()

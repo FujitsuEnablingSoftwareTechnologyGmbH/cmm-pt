@@ -44,7 +44,7 @@ MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 class LogThroughput(threading.Thread):
     def __init__(self, tenant_project, elastic_url, runtime, ticker,
                  search_string_list, search_field, num_to_stop, mariadb_status, mariadb_username=None,
-                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=1):
+                 mariadb_password=None, mariadb_hostname=None, mariadb_database=None, testCaseID=[1,""]):
         threading.Thread.__init__(self)
         self.mariadb_status = mariadb_status
         self.tenant_project = tenant_project
@@ -54,7 +54,7 @@ class LogThroughput(threading.Thread):
         self.search_string_list = search_string_list
         self.search_field = search_field
         self.num_to_stop = num_to_stop
-        self.result_file = self.create_result_file()
+        self.result_file =self.create_result_file(testCaseID[1])
         if self.mariadb_status == 'enabled':
             self.mariadb_database = mariadb_database
             self.mariadb_username = mariadb_username
@@ -63,7 +63,7 @@ class LogThroughput(threading.Thread):
             if ((self.mariadb_hostname is not None) and
                 (self.mariadb_username is not None) and
                     (self.mariadb_database is not None)):
-                self.testCaseID = testCaseID
+                self.testCaseID = testCaseID[0]
                 db = MySQLdb.connect(self.mariadb_hostname, self.mariadb_username,
                                      self.mariadb_password, self.mariadb_database)
                 self.testID = db_saver.save_test(db, self.testCaseID, TEST_NAME)
@@ -80,6 +80,8 @@ class LogThroughput(threading.Thread):
             num_found, status = search_logs.count_logs_by_app_name(search_str, self.elastic_url)
         elif self.search_field == "application_type":
             num_found, status = search_logs.count_logs_by_app_type(search_str, self.elastic_url)
+        elif self.search_field == "dimension":
+            num_found, status = search_logs.count_logs_by_dimension("hostname",search_str, self.elastic_url)
         else:
             num_found, status = search_logs.count_logs_by_app_message(search_str, self.elastic_url)
         return num_found, status
@@ -161,11 +163,20 @@ class LogThroughput(threading.Thread):
         if self.mariadb_status == 'enabled':
             return ["throughput", round((num_entries_list[index] / duration_secs), 2),
                     datetime.utcnow().replace(microsecond=0)]
-
+    """
     def create_result_file(self):
-        """create result file and save header line to this file """
+        #create result file and save header line to this file
         header_line = "Request_status, throughput_check_timestamp, duration_sec"
         res_file = create_file(TEST_NAME)
+        for search_string in self.search_string_list:
+            header_line = "{}, {} count, {} Log Entries Per Sec".format(header_line, search_string, search_string)
+            write_line_to_file(res_file, header_line)
+        return res_file
+    """
+    def create_result_file(self,path):
+        """create result file and save header line to this file """
+        header_line = "Request_status, throughput_check_timestamp, duration_sec"
+        res_file = create_file(path ,TEST_NAME)
         for search_string in self.search_string_list:
             header_line = "{}, {} count, {} Log Entries Per Sec".format(header_line, search_string, search_string)
             write_line_to_file(res_file, header_line)

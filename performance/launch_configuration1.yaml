@@ -52,8 +52,8 @@ TestSuite2a:
 
         metric_latency:
          - runtime: 3600
-           check_frequency: 1
-           send_frequency: 10
+           check_ticker: 1
+           send_ticker: 10
            timeout: 30
 TestSuite2b: 
      Program:
@@ -108,8 +108,8 @@ TestSuite2b:
 
         metric_latency:
          - runtime: 3600
-           check_frequency: 1
-           send_frequency: 10
+           check_ticker: 1
+           send_ticker: 10
            timeout: 30
 
 TestSuite3: 
