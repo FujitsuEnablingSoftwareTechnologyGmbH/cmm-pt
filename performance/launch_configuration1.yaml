@@ -214,8 +214,8 @@ TestSuite4a:
 TestSuite4: 
      Program:
         alarm_on_log:
-            runtime : 3600
-            alarm_conf:
+         - runtime : 3600
+           alarm_conf:
             - severity: error
               number_of_alarm_def: 5
               alarms_per_alarm_definition: 10
