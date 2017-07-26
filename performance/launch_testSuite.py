@@ -186,7 +186,7 @@ def start_metric_latency_program(config, test_case_id):
     print("    runtime          : " + str(config['runtime']))
     print("    check_ticker           : " + str(config['check_ticker']))
     print("    send_ticker   : " + str(config['send_ticker']))
-    print("    runtime      : " + str(config['timeout']))
+    print("    timeout      : " + str(config['timeout']))
     metric_latency = MetricLatency(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                    METRIC_API_URL + "/metrics", config['runtime'], config['check_ticker'],
                                    config['send_ticker'], config['timeout'], MARIADB_STATUS, MARIADB_USERNAME,
