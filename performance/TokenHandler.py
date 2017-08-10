@@ -37,7 +37,7 @@ class TokenHandler:
         if auth_uri:
             self.auth_uri = auth_uri
         else:
-            basic_conf = yaml.load(file('basic_configuration.yaml'))
+            basic_conf = yaml.load(file('./basic_configuration.yaml'))
             auth_uri = basic_conf['url']['keystone']
         self.auth_uri = auth_uri
         self.token_info = {"token_id": None,

@@ -34,7 +34,7 @@ from urlparse import urlparse
 import db_saver
 
 TEST_NAME = "log_throughput"
-BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+BASIC_CONF = yaml.load(file('./basic_configuration.yaml'))
 MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
 MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
 MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
@@ -78,10 +78,13 @@ class LogThroughput(threading.Thread):
         """
         if self.search_field == "application_name":
             num_found, status = search_logs.count_logs_by_app_name(search_str, self.elastic_url)
+            print "application_name"
         elif self.search_field == "application_type":
             num_found, status = search_logs.count_logs_by_app_type(search_str, self.elastic_url)
-        elif self.search_field == "dimension":
-            num_found, status = search_logs.count_logs_by_dimension("hostname",search_str, self.elastic_url)
+            print "application_type"
+        elif self.search_field == "service":
+            print "service"
+            num_found, status = search_logs.count_logs_by_dimension("service",search_str, self.elastic_url)
         else:
             num_found, status = search_logs.count_logs_by_app_message(search_str, self.elastic_url)
         return num_found, status
@@ -203,7 +206,7 @@ def create_program_argument_parser():
 if __name__ == "__main__":
     if len(sys.argv) <= 1:
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
-        BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        BASIC_CONF = yaml.load(file('./basic_configuration.yaml'))
         MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
         MARIADB_PASSWORD = BASIC_CONF['mariadb']['password']\

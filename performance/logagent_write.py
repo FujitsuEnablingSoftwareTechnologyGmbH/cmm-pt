@@ -36,7 +36,7 @@ TEST_NAME = 'logagent_write'
 
 #Queue empty: Timeout parameter
 QUEUE_TIME_OUT = 5
-BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+BASIC_CONF = yaml.load(file('./basic_configuration.yaml'))
 MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
 MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
 MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''

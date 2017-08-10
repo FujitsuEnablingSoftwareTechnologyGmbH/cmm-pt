@@ -35,9 +35,26 @@ from metric_throughput import MetricThroughput
 
 def create_program_argument_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-suite', action='store', dest='suite')
-    parser.add_argument('-config_file', action='store', dest='conf_file')
+    parser.add_argument('-series', action='store', dest='series', )
+
+    parser.add_argument('-suite', action='store', dest='suite', nargs='+'
+                                                                      '')
+    parser.add_argument('-config_file', action='store', dest='conf_file', nargs='+')
+
+
+
     return parser.parse_args()
+'''
+Sample for main parameter
+-suite "TestSuite1"  "TestSuite2a" -series "2" -config_file "launch_configuration1.yaml" "launch_configuration2.yaml"
+if parameter is missing, default will be used
+
+default for suite : ['TestSuite1', 'TestSuite2a','TestSuite2b','TestSuite3','TestSuite4a','TestSuite4','TestSuite5']
+default for series : 1
+default for config_files : ["launch_configuration1.yaml"]
+default for config_files, if series is > 1 : "launch_configuration1.yaml" "launch_configuration2.yaml"...
+
+'''
 
 
 BASIC_CONF = yaml.load(file('./basic_configuration.yaml'), Loader=yaml.Loader)
@@ -58,31 +75,48 @@ MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['p
 MARIADB_DATABASE = BASIC_CONF['mariadb']['database']
 MARIADB_STATUS = BASIC_CONF['mariadb']['status']
 MONASCA_HOSTNAME = BASIC_CONF['monasca_hostname']
+# TEST_CASE_ID = [0] TEST_CASE_ID
+# TEST_CASE_ID = [1] path for output directory where the .cvs files stores
 TEST_CASE_ID = [0,""]
+TESTSUITE_CONF = []
+path_conf = []
+
+TEST_SUITES = ['TestSuite1', 'TestSuite2a','TestSuite2b','TestSuite3','TestSuite4a','TestSuite4','TestSuite5']
+#TEST_SUITES = ['TestSuite2a']
+#TEST_SUITES = ['TestSuite1','TestSuite2a', 'TestSuite3','TestSuite4a','TestSuite5']
 
 TEST_NAME = 'log_metric_test_launch'
 program_argument = create_program_argument_parser()
-SUITE = program_argument.suite
+SUITES = program_argument.suite
+SERIES = program_argument.series
 CONF_FILE = program_argument.conf_file
 DELAY = 10
 
-if CONF_FILE:
-    TESTSUITE_CONF = yaml.load(file('./' + CONF_FILE), Loader=yaml.Loader)
+
+if  SUITES:
+    print SUITES
 else:
-    TESTSUITE_CONF = yaml.load(file('./launch_configuration1.yaml'), Loader=yaml.Loader)
+    SUITES = TEST_SUITES
+    print SUITES
+
+if  SERIES:
+    print SERIES
+else:
+    SERIES = 1
+    print SERIES
+anz = int(SERIES)
+print anz
 
 
-def create_file(strdir):
-    path = "results/"+ strdir + '_' + (datetime.now().strftime("%Y-%m-%dT%H_%M_%S") + '/')
-    if os.path.isfile('result_dir_for_Suite.yaml'):
-        os.remove('result_dir_for_Suite.yaml')
-    fp = open('result_dir_for_Suite.yaml', 'w')
 
-    fp.write("write_result:"  + '\n')
-    fp.write("    directory:  " + path)
-    fp.flush()
-    fp.close()
+if CONF_FILE:
+    path_conf = CONF_FILE
 
+else:
+    for loop in range(anz):
+         path_conf.append( './launch_configuration' + str(loop + 1) + '.yaml')
+
+print path_conf
 
 def create_and_get_test_case_id(test_suite):
     if MARIADB_STATUS == 'enabled':
@@ -229,304 +263,361 @@ def start_logagent_latency(config, test_case_id):
 
 if __name__ == "__main__":
 
-    TEST_CASE_ID[1] = "results/" + SUITE + '_' + (datetime.now().strftime("%Y-%m-%dT%H_%M_%S") + '/')
-
-    if SUITE == 'TestSuite1':
 
 
-        if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+     for loop in range(anz):
+
+       TESTSUITE_CONF = yaml.load(file(path_conf[loop]), Loader=yaml.Loader)
+
+
+       for SUITE in SUITES:
+
+
+         TEST_CASE_ID[1] = "results/" + SUITE + '_'+str(loop+1)+'_' + (datetime.now().strftime("%Y-%m-%dT%H_%M_%S") + '/')
+
+         if SUITE == 'TestSuite1':
+            try:
+                exist = TESTSUITE_CONF[SUITE]
+            except:
+                print "skip "+SUITE
+                continue
+
+            if MARIADB_STATUS == 'enabled':
+
+                TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+                metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                             MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                             MARIADB_DATABASE, TEST_CASE_ID[0])
+                start_time = datetime.utcnow()
+            program_list = []
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
+              program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
+
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+               program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
+                program_list.append(start_log_latency_program(configuration, TEST_CASE_ID))
+
+            for program in program_list:
+               program.join()
+
+            if MARIADB_STATUS == 'enabled':
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                db_saver.close_testCase(db, TEST_CASE_ID[0])
+                db.close()
+                metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
+
+
+         elif SUITE == 'TestSuite2a':
+            try:
+                exist = TESTSUITE_CONF[SUITE]
+            except:
+                print "skip " + SUITE
+                break
+
+            if MARIADB_STATUS == 'enabled':
+
+                TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+                start_time = datetime.utcnow()
+            program_list = []
             metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
                                          MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
                                          MARIADB_DATABASE, TEST_CASE_ID[0])
-            start_time = datetime.utcnow()
-        program_list = []
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
-            program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
 
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
-            program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
-            program_list.append(start_log_latency_program(configuration, TEST_CASE_ID))
-
-        for program in program_list:
-            program.join()
-
-        if MARIADB_STATUS == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID[0])
-            db.close()
-            metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
-
-
-    elif SUITE == 'TestSuite2a':
-
-        if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
-            start_time = datetime.utcnow()
-        program_list = []
-        metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                     MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                     MARIADB_DATABASE, TEST_CASE_ID[0])
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
-            program_list.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
-            program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
-            program_list.append(start_metric_latency_program(configuration, TEST_CASE_ID))
-
-        for program in program_list:
-            program.join()
-        if MARIADB_STATUS == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db, TEST_CASE_ID[0])
-            db.close()
-            metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
-
-    elif SUITE == 'TestSuite2b':
-        if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
-            metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                         MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
-            start_time = datetime.utcnow()
-        program_list = []
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
-            program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
-            program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
-            program_list.append(start_log_latency_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
-            program_list.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
-            program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
-            program_list.append(start_metric_latency_program(configuration, TEST_CASE_ID))
-
-        for program in program_list:
-            program.join()
-
-        if MARIADB_STATUS == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db,  TEST_CASE_ID[0])
-            db.close()
-            metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
-
-    elif SUITE == 'TestSuite3':
-        if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
-            metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                         MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
-            start_time = datetime.utcnow()
-        program_list = []
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
-            program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
-            program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['logagent_write']:
-            program_list.append(start_logagent_write(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['logagent_latency']:
-
-            program_list.append(start_logagent_latency(configuration, TEST_CASE_ID))
-
-        for program in program_list:
-            program.join()
-        if MARIADB_STATUS == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db,  TEST_CASE_ID[0])
-            db.close()
-            metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
-
-    elif SUITE == 'TestSuite4a':
-        if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
-            metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                         MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
-            start_time = datetime.utcnow()
-        program_list = []
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
-            program_list.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
-            program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
-
-        for program in program_list:
-            program.join()
-        if MARIADB_STATUS == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db,  TEST_CASE_ID[0])
-            db.close()
-            metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
-
-    elif SUITE == 'TestSuite4':
-        if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
-            metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                         MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
-            start_time = datetime.utcnow()
-        program_list = []
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
-            program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
-            program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
-
-        print("Alarm on LOG, parameter:")
-        print("    runtime          : " + str(TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['runtime']))
-        print("    alarm_conf           : " + str(TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['alarm_conf']))
-        aol = AOLTest(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT, METRIC_API_URL, LOG_API_URL,
-                      TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['alarm_conf'],
-                      TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['runtime'], MARIADB_STATUS, MARIADB_USERNAME,
-                      MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
-        aol.start()
-        program_list.append(aol)
-
-        for program in program_list:
-            program.join()
-
-        if MARIADB_STATUS == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db,  TEST_CASE_ID[0])
-            db.close()
-            metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
-
-    elif SUITE == 'TestSuite5':
-        if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
-            metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                         MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
-            start_time = datetime.utcnow()
-
-        program_list_before_stress = list()
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_throughput']:
-            program_list_before_stress.append(start_log_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_send']:
-            program_list_before_stress.append(start_log_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_latency']:
-            program_list_before_stress.append(start_log_latency_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_throughput']:
-            program_list_before_stress.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_send']:
-            program_list_before_stress.append(start_metric_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_latency']:
-            program_list_before_stress.append(start_metric_latency_program(configuration, TEST_CASE_ID))
-
-        for program in program_list_before_stress:
-            program.join()
-
-        program_list_stress = list()
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_stress']['log_send']:
-            program_list_stress.append(start_log_send_program(configuration, TEST_CASE_ID, 'Stress'))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_stress']['metric_send']:
-            program_list_stress.append(start_metric_send_program(configuration, TEST_CASE_ID))
-
-        for program in program_list_stress:
-            program.join()
-
-        program_list_after_stress = list()
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_throughput']:
-            program_list_after_stress.append(start_log_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_send']:
-            program_list_after_stress.append(start_log_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_latency']:
-            program_list_after_stress.append(start_log_latency_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_throughput']:
-            program_list_after_stress.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_send']:
-            program_list_after_stress.append(start_metric_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_latency']:
-            program_list_after_stress.append(start_metric_latency_program(configuration, TEST_CASE_ID))
-
-        for program in program_list_after_stress:
-            program.join()
-
-        if MARIADB_STATUS == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db,  TEST_CASE_ID[0])
-            db.close()
-            metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
-
-    elif SUITE == 'TestSuite6':
-        if MARIADB_STATUS == 'enabled':
-            TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
-            metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
-                                         MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                         MARIADB_DATABASE,  TEST_CASE_ID[0])
-            start_time = datetime.utcnow()
-
-        test_suite_start_time = datetime.utcnow().replace(microsecond=0)
-        count_script_metric_name = list()
-        program_list = []
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
-            program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
-            program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
-            program_list.append(start_log_latency_program(configuration, TEST_CASE_ID))
-
-        for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
-            program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
-            count_script_metric_name.append(configuration['metric_name'])
-
-        for i in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
-            program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
-
-        for program in program_list:
-            program.join()
-        test_suite_end_time = datetime.utcnow().replace(microsecond=0)
-        for metric_name in count_script_metric_name:
-            print("CountMetric, parameter:")
-            print("    metric_name          : " + metric_name)
-            print("    start_time          : " + str(test_suite_start_time))
-            print("    end_time          : " + str(test_suite_end_time))
-
-            count_metric = CountMetric(INFLUX_URL, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE,
-                                       test_suite_start_time, test_suite_end_time, metric_name,
-                                       MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
-                                       MARIADB_DATABASE, TEST_CASE_ID)
-            count_metric.count_metric()
-
-        if MARIADB_STATUS == 'enabled':
-            db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
-            db_saver.close_testCase(db,  TEST_CASE_ID[0])
-            db.close()
-            metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
-
-    else:
-        raise ValueError('incorrect Suite parameter ({})'.format(SUITE))
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
+                program_list.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
+                program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
+                program_list.append(start_metric_latency_program(configuration, TEST_CASE_ID))
+
+            for program in program_list:
+                program.join()
+            if MARIADB_STATUS == 'enabled':
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                db_saver.close_testCase(db, TEST_CASE_ID[0])
+                db.close()
+                metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
+
+         elif SUITE == 'TestSuite2b':
+            try:
+                exist = TESTSUITE_CONF[SUITE]
+            except:
+                print "skip " + SUITE
+                break
+            if MARIADB_STATUS == 'enabled':
+                TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+                metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                             MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                             MARIADB_DATABASE,  TEST_CASE_ID[0])
+                start_time = datetime.utcnow()
+            program_list = []
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
+                program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+                program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
+                program_list.append(start_log_latency_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
+                program_list.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
+                program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
+                program_list.append(start_metric_latency_program(configuration, TEST_CASE_ID))
+
+            for program in program_list:
+                program.join()
+
+            if MARIADB_STATUS == 'enabled':
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                db_saver.close_testCase(db,  TEST_CASE_ID[0])
+                db.close()
+                metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
+
+         elif SUITE == 'TestSuite3':
+            try:
+                exist = TESTSUITE_CONF[SUITE]
+            except:
+                print "skip " + SUITE
+                break
+            if MARIADB_STATUS == 'enabled':
+                TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+                metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                             MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                             MARIADB_DATABASE,  TEST_CASE_ID[0])
+                start_time = datetime.utcnow()
+            program_list = []
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
+                program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+                program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['logagent_write']:
+                program_list.append(start_logagent_write(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['logagent_latency']:
+
+                program_list.append(start_logagent_latency(configuration, TEST_CASE_ID))
+
+            for program in program_list:
+                program.join()
+            if MARIADB_STATUS == 'enabled':
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                db_saver.close_testCase(db,  TEST_CASE_ID[0])
+                db.close()
+                metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
+
+         elif SUITE == 'TestSuite4a':
+            try:
+                exist = TESTSUITE_CONF[SUITE]
+            except:
+                print "skip " + SUITE
+                break
+            if MARIADB_STATUS == 'enabled':
+                TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+                metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                             MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                             MARIADB_DATABASE,  TEST_CASE_ID[0])
+                start_time = datetime.utcnow()
+            program_list = []
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_throughput']:
+                program_list.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+                program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
+
+            for program in program_list:
+                program.join()
+            if MARIADB_STATUS == 'enabled':
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                db_saver.close_testCase(db,  TEST_CASE_ID[0])
+                db.close()
+                metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
+
+         elif SUITE == 'TestSuite4':
+            try:
+                exist = TESTSUITE_CONF[SUITE]
+            except:
+                print "skip " + SUITE
+                break
+            if MARIADB_STATUS == 'enabled':
+                TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+                metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                             MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                             MARIADB_DATABASE,  TEST_CASE_ID[0])
+                start_time = datetime.utcnow()
+            program_list = []
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+                program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
+                program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
+
+            print("Alarm on LOG, parameter:")
+            print("    runtime          : " + str(TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['runtime']))
+            print("    alarm_conf           : " + str(TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['alarm_conf']))
+            aol = AOLTest(KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT, METRIC_API_URL, LOG_API_URL,
+                          TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['alarm_conf'],
+                          TESTSUITE_CONF[SUITE]['Program']['alarm_on_log']['runtime'], MARIADB_STATUS, MARIADB_USERNAME,
+                          MARIADB_PASSWORD, MARIADB_HOSTNAME, MARIADB_DATABASE, TEST_CASE_ID)
+            aol.start()
+            program_list.append(aol)
+
+            for program in program_list:
+                program.join()
+
+            if MARIADB_STATUS == 'enabled':
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                db_saver.close_testCase(db,  TEST_CASE_ID[0])
+                db.close()
+                metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
+
+         elif SUITE == 'TestSuite5':
+            try:
+                exist = TESTSUITE_CONF[SUITE]
+            except:
+                print "skip " + SUITE
+                break
+
+            if MARIADB_STATUS == 'enabled':
+                TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+                metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                             MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                             MARIADB_DATABASE,  TEST_CASE_ID[0])
+                start_time = datetime.utcnow()
+
+            program_list_before_stress = list()
+            for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_throughput']:
+                program_list_before_stress.append(start_log_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_send']:
+                program_list_before_stress.append(start_log_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['log_latency']:
+                program_list_before_stress.append(start_log_latency_program(configuration, TEST_CASE_ID))
+
+            #for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_throughput']:
+            #    program_list_before_stress.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
+
+            #for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_send']:
+             #   program_list_before_stress.append(start_metric_send_program(configuration, TEST_CASE_ID))
+
+            #for configuration in TESTSUITE_CONF[SUITE]['Program_before_stress']['metric_latency']:
+             #   program_list_before_stress.append(start_metric_latency_program(configuration, TEST_CASE_ID))
+
+            for program in program_list_before_stress:
+                program.join()
+
+            program_list_stress = list()
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program_stress']['log_throughput']:
+                program_list_stress.append(start_log_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program_stress']['log_send']:
+                program_list_stress.append(start_log_send_program(configuration, TEST_CASE_ID, 'Stress'))
+            for configuration in TESTSUITE_CONF[SUITE]['Program_stress']['log_latency']:
+                program_list_stress.append(start_log_latency_program(configuration, TEST_CASE_ID))
+
+            #for configuration in TESTSUITE_CONF[SUITE]['Program_stress']['metric_send']:
+             #   program_list_stress.append(start_metric_send_program(configuration, TEST_CASE_ID))
+
+            #for program in program_list_stress:
+             #   program.join()
+
+            program_list_after_stress = list()
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_throughput']:
+                program_list_after_stress.append(start_log_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_send']:
+                program_list_after_stress.append(start_log_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['log_latency']:
+                program_list_after_stress.append(start_log_latency_program(configuration, TEST_CASE_ID))
+
+            #for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_throughput']:
+             #   program_list_after_stress.append(start_metric_throughput_program(configuration, TEST_CASE_ID))
+
+            #for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_send']:
+             #   program_list_after_stress.append(start_metric_send_program(configuration, TEST_CASE_ID))
+
+            #for configuration in TESTSUITE_CONF[SUITE]['Program_after_stress']['metric_latency']:
+             #   program_list_after_stress.append(start_metric_latency_program(configuration, TEST_CASE_ID))
+
+            for program in program_list_after_stress:
+                program.join()
+
+            if MARIADB_STATUS == 'enabled':
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                db_saver.close_testCase(db,  TEST_CASE_ID[0])
+                db.close()
+                metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
+
+         elif SUITE == 'TestSuite6':
+            try:
+                exist = TESTSUITE_CONF[SUITE]
+            except:
+                print "skip " + SUITE
+                break
+            if MARIADB_STATUS == 'enabled':
+                TEST_CASE_ID[0] = create_and_get_test_case_id(SUITE)
+                metric_getter = MetricGetter(METRIC_API_URL, KEYSTONE_URL, TENANT_USERNAME, TENANT_PASSWORD, TENANT_PROJECT,
+                                             MONASCA_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                             MARIADB_DATABASE,  TEST_CASE_ID[0])
+                start_time = datetime.utcnow()
+
+            test_suite_start_time = datetime.utcnow().replace(microsecond=0)
+            count_script_metric_name = list()
+            program_list = []
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_throughput']:
+                program_list.append(start_log_throughput_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_send']:
+                program_list.append(start_log_send_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['log_latency']:
+                program_list.append(start_log_latency_program(configuration, TEST_CASE_ID))
+
+            for configuration in TESTSUITE_CONF[SUITE]['Program']['metric_send']:
+                program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
+                count_script_metric_name.append(configuration['metric_name'])
+
+            for i in TESTSUITE_CONF[SUITE]['Program']['metric_latency']:
+                program_list.append(start_metric_send_program(configuration, TEST_CASE_ID))
+
+            for program in program_list:
+                program.join()
+            test_suite_end_time = datetime.utcnow().replace(microsecond=0)
+            for metric_name in count_script_metric_name:
+                print("CountMetric, parameter:")
+                print("    metric_name          : " + metric_name)
+                print("    start_time          : " + str(test_suite_start_time))
+                print("    end_time          : " + str(test_suite_end_time))
+
+                count_metric = CountMetric(INFLUX_URL, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE,
+                                           test_suite_start_time, test_suite_end_time, metric_name,
+                                           MARIADB_STATUS, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_HOSTNAME,
+                                           MARIADB_DATABASE, TEST_CASE_ID)
+                count_metric.count_metric()
+
+            if MARIADB_STATUS == 'enabled':
+                db = MySQLdb.connect(MARIADB_HOSTNAME, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE)
+                db_saver.close_testCase(db,  TEST_CASE_ID[0])
+                db.close()
+                metric_getter.get_and_save_tests_metrics(start_time, datetime.utcnow())
+
+         else:
+            raise ValueError('incorrect Suite parameter ({})'.format(SUITE))

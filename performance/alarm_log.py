@@ -48,7 +48,7 @@ def create_program_argument_parser():
 TEST_NAME = 'alarm_log'
 
 if len(sys.argv) <= 1:
-    BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+    BASIC_CONF = yaml.load(file('./basic_configuration.yaml'))
     TEST_CONF = yaml.load(file('test_configuration.yaml'))
     KEYSTONE_URL = BASIC_CONF['url']['keystone']
     METRIC_API_URL = BASIC_CONF['url']['metrics_api']

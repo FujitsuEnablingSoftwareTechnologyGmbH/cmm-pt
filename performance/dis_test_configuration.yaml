@@ -1,0 +1,127 @@
+parameters:
+    token_renew_time: 300 ###in seconds. Before the token expiration time, the token should be renewed. The parameter value is the time, how long before the token expiration time.the actual token refresh time= token expiration time - token_renew_time
+
+
+#this part for perf_log_Cont_send_Read.py ---- injector
+log_latency:
+    num_threads: 1
+    log_api_type: bulk ### possible options: 'bulk' 'single'.
+    num_of_logs_in_one_bulk: ### number of logs send in single bulk
+    log_size:  ###size of single log in byte
+    runtime:  ### runtime in seconds
+    ticker:  ###Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
+
+log_send:
+    num_threads: 1
+    log_every_n: 100 ### log output to console every x times
+    log_api_type: bulk ### possible option  single and bulk
+    num_of_logs_in_one_bulk: 125  # number of logs send in single bul, work only in bulk mode
+    log_size: 100 ###size of single log in byte
+    runtime:  10 ### runtime in seconds
+    frequency: 8 ### this value define how many single/bulk(request) will send this program per sec
+    log_level: ERROR
+    dimension:
+        - key: host
+          value: mydumy
+
+
+
+#this part for perf_log_throughput.py to check throughput in elasticsearch directly
+log_throughput:
+    LOG_EVERY_N: 1000
+    runtime: 120
+    ticker: 10
+    num_stop: 4
+    search_field: application_type  #<-------??? set by log Agent
+    search_string:
+        - LogAgent
+
+logagent_latency:
+    check_timeout: 240 # maximum time that
+    check_ticker: 5 # how long to wait before write latency log again
+    search_ticker: 0.1 # wait time between search request
+    runtime: 200
+    log_files:
+        - file: test.log
+          directory: /var/log/systemtest/
+          log_level: ERROR
+          msg_size: 200
+
+
+
+
+#this part for perf_cont_metric.py to send metrics at intervals
+metric_send:
+    num_threads:
+    num_metrics_per_request:
+    LOG_EVERY_N:  #### log output to console every x times
+    runtime:  ### runtime in seconds
+    frequency:  ### Ticker how long to wait before sending again; float: 1 is 1 second 0.1 = tenth of a second
+    metric_name:
+    metric_dimension:
+        - key:
+          value:
+
+
+#this part for logagent_write.py to continuous write
+logagent_write:
+    log_ever_n: 100  ### log output to console every x times
+    runtime:  200  ### runtime in seconds
+    inp_file_dir: /opt/CMM-PT/st-test-input/
+    inp_file_list: ###
+      - name: size400.txt
+        frequency: 1  #### logs/second : 5: every 1/5 seconds, write one log to logfile
+        loglevel: INFO
+
+    outp_file_dir: /var/log/systemtest/
+    outp_file_name: test.log # for example: test0.log and test1.log will be created. The extension is needed
+    outp_count: 1 # count of output_files
+
+
+
+
+metric_throughput:
+    runtime: 60
+    metric_name:
+    ticker:
+    ticker_to_stop:  # wait another time(ticker_to_stop * ticker) when the diff becomes 0
+    metric_dimensions:
+        - key:
+          value:
+
+metric_latency:
+    runtime: #### runtime in seconds
+    check_ticker: #### how long to wait before checking again if metric is available.
+    send_ticker: #### how long to wait before sending metric again.
+    timeout: #### maximum time that program will check if metric is available.
+
+#this part for write_logs
+write_result:
+    directory: perf_testResult/ ##Directory where results from all test will be stored
+    
+    
+write_logs:
+    inp_file_dir: testresults
+    outp_file_name_ext: ".csv"        
+
+alarm_on_log:
+    runtime : 600
+    alarm_conf:
+        - severity: error
+          number_of_alarm_def: 2
+          alarms_per_alarm_definition: 1
+        - severity: warning
+          number_of_alarm_def: 2
+          alarms_per_alarm_definition: 2
+
+alarm_log:
+    alarm_definition_name: # name pater for all alarm definitions
+    number_of_alarm_definition:  #Number of alarm definition that will be crated
+    alarms_per_alarm_definition: #number of alarms tiger by single alarm definition
+
+count_metric:
+    metric_name: mem.total_mb
+    start_time: ###expect format year-mont-day hour:minute:second  example: 2017-3-18 18:19:30
+    end_time: 2017-3-21 18:19:30
+
+

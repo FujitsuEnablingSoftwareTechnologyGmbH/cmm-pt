@@ -122,7 +122,7 @@ def create_program_argument_parser():
 if __name__ == "__main__":
     if len(sys.argv) <= 1:
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
-        BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        BASIC_CONF = yaml.load(file('./basic_configuration.yaml'))
         MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
         MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] \

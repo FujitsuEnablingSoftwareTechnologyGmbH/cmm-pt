@@ -1,0 +1,304 @@
+TestSuite1: 
+     Program:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  3600
+           frequency: 12
+           log_level: INFO
+           dimension:
+           - key: hostname1
+             value: systemtest1
+             
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 3600
+            ticker: 10 
+            num_stop: 10
+            search_field: application_type
+            search_string:
+                - SystemTest
+            
+        log_latency:
+          - num_threads: 1
+            log_api_type: bulk
+            num_of_logs_in_one_bulk: 125
+            log_size: 200
+            runtime:  3600
+            ticker:  5 
+TestSuite2a: 
+     Program:
+        metric_send:
+         - num_threads: 1
+           num_metrics_per_request: 100
+           LOG_EVERY_N: 1000
+           runtime: 3600
+           frequency: 40
+           metric_name: systemtest2a
+           metric_dimension:
+            - key: hostname
+              value: systemtest
+        metric_throughput:
+         - runtime: 3600
+           metric_name: systemtest2a
+           ticker: 10
+           ticker_to_stop: 10
+           metric_dimensions:
+            - key: hostname
+              value: systemtest
+
+        metric_latency:
+         - runtime: 3600
+           check_ticker: 1
+           send_ticker: 10
+           timeout: 30
+TestSuite2b: 
+     Program:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  3600
+           frequency: 16
+           log_level: INFO
+           dimension:
+           - key: hostname2b
+             value: systemtest2b
+             
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 3600
+            ticker: 10
+            num_stop: 10
+            search_field: application_type
+            search_string:
+                - SystemTest
+            
+        log_latency:
+          - num_threads: 1
+            log_api_type: bulk
+            num_of_logs_in_one_bulk: 125
+            log_size: 200
+            runtime:  3600
+            ticker:  5 
+            
+        metric_send:
+         - num_threads: 1
+           num_metrics_per_request: 100
+           LOG_EVERY_N: 1000
+           runtime: 3600
+           frequency: 20
+           metric_name: systemtest2b
+           metric_dimension:
+            - key: hostname
+              value: systemtest
+        metric_throughput:
+         - runtime: 3600
+           metric_name: systemtest2b
+           ticker: 10
+           ticker_to_stop: 10
+           metric_dimensions:
+            - key: hostname
+              value: systemtest
+
+        metric_latency:
+         - runtime: 3600
+           check_ticker: 1
+           send_ticker: 10
+           timeout: 30
+
+
+TestSuite4a: 
+     Program:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  3600
+           frequency: 8
+           log_level: INFO
+           dimension:
+           - key: hostname
+             value: systemtest  
+         - num_threads: 1
+           log_every_n: 10
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 1           
+           log_size: 200
+           runtime:  36
+           frequency: 5
+           log_level: ERROR
+           dimension:
+           - key: hostname
+             value: systemtestERROR
+         - num_threads: 1
+           log_every_n: 10
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 1
+           log_size: 200
+           runtime:  36
+           frequency: 5
+           log_level: WARNING
+           dimension:
+           - key: hostname
+             value: systemtestWARNING
+        metric_throughput:
+         - runtime: 3600
+           metric_name: log.error
+           ticker: 10
+           ticker_to_stop: 10
+           metric_dimensions:
+            - key: hostname
+              value: systemtestERROR
+         - runtime: 3600
+           metric_name: log.warning
+           ticker: 10
+           ticker_to_stop: 10
+           metric_dimensions:
+             - key: hostname
+               value: systemtestWARNING
+TestSuite5:
+    Program_before_stress:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  3600
+           frequency: 8
+           log_level: INFO
+           dimension:
+           - key: hostname2b
+             value: systemtest2b
+
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 3600
+            ticker: 2
+            num_stop: 10
+            search_field: application_type
+            search_string:
+                - SystemTest
+
+        log_latency:
+          - num_threads: 1
+            log_api_type: bulk
+            num_of_logs_in_one_bulk: 125
+            log_size: 200
+            runtime:  3600
+            ticker:  5
+    Program_stress:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  1800
+           frequency: 20
+           log_level: INFO
+           dimension:
+           - key: hostname2b
+             value: systemtest2b
+
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 1800
+            ticker: 2
+            num_stop: 10
+            search_field: application_type
+            search_string:
+                - Stress
+
+        log_latency:
+          - num_threads: 1
+            log_api_type: bulk
+            num_of_logs_in_one_bulk: 125
+            log_size: 200
+            runtime:  1800
+            ticker:  5
+    Program_after_stress:
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  3600
+           frequency: 8
+           log_level: INFO
+           dimension:
+           - key: hostname2b
+             value: systemtest2b
+
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 3600
+            ticker: 2
+            num_stop: 10
+            search_field: application_type
+            search_string:
+                - Systemtest
+
+        log_latency:
+          - num_threads: 1
+            log_api_type: bulk
+            num_of_logs_in_one_bulk: 125
+            log_size: 200
+            runtime:  3600
+            ticker:  5
+TestSuite3:
+     Program:
+        logagent_write:
+          - log_ever_n: 100
+            runtime: 3600
+            inp_file_dir: /opt/CMM-PT/st-test-input/
+            inp_file_list:
+             - name: size400.txt
+               frequency: 1
+               loglevel: ERROR
+             - name: size200.txt
+               frequency: 6
+               loglevel: INFO
+            outp_file_dir: /var/log/systemtest/
+            outp_file_name: test.log
+            outp_count: 10
+        logagent_latency:
+          - check_timeout: 240
+            check_ticker: 10
+            search_ticker: 1
+            runtime: 3600
+            log_files:
+             - file: test.log
+               directory: /var/log/systemtest/
+               log_level: ERROR
+               msg_size: 200
+
+        log_throughput:
+          - LOG_EVERY_N: 1000
+            runtime: 3600
+            ticker: 10
+            num_stop: 10
+            search_field: service  #set by log Agent don't change
+            search_string:
+                - systemtest          #set by log Agent don't change
+        log_send:
+         - num_threads: 1
+           log_every_n: 1000
+           log_api_type: bulk
+           num_of_logs_in_one_bulk: 125
+           log_size: 200
+           runtime:  3600
+           frequency: 8
+           log_level: NONE
+           dimension:
+           - key: hostname3
+             value: systemtest3

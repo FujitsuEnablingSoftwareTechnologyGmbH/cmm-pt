@@ -42,7 +42,7 @@ import db_saver
 TEST_NAME = 'log_latency'
 BULK_URL_PATH = '/v3.0/logs'
 SINGLE_LOG_API_URL_PATH = '/v2.0/log/single'
-BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+BASIC_CONF = yaml.load(file('./basic_configuration.yaml'))
 MARIADB_HOSTNAME = BASIC_CONF['mariadb']['hostname']
 MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
 MARIADB_PASSWORD = BASIC_CONF['mariadb']['password'] if BASIC_CONF['mariadb']['password'] is not None else ''
@@ -263,7 +263,7 @@ def create_program_argument_parser():
 
 if __name__ == "__main__":
     if len(sys.argv) <= 1:
-        BASIC_CONF = yaml.load(file('basic_configuration.yaml'))
+        BASIC_CONF = yaml.load(file('./basic_configuration.yaml'))
         TEST_CONF = yaml.load(file('test_configuration.yaml'))
         MARIADB_STATUS = BASIC_CONF['mariadb']['status']
         MARIADB_USERNAME = BASIC_CONF['mariadb']['user']
